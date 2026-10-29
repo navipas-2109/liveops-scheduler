@@ -60,7 +60,7 @@ function fakeDeps(today = "2026-10-29") {
     },
     bookingWindows: { listAll: async () => [nov], save: async () => {} },
     notifier: { notify: async (channels, text) => void sent.push({ channels, text }) },
-    clock: { today: () => today },
+    clock: { today: () => today, nowMinute: () => 12 * 60 },
   };
   return { deps, rows, sent };
 }

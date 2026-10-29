@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   currentLiveDate,
+  currentLiveMinute,
+  liveHasEnded,
   fromIsoDate,
   fromLiveMinutes,
   isValidIsoDate,
@@ -40,5 +42,19 @@ describe("ISO dates", () => {
     expect(toIsoDate(fromIsoDate("2026-02-28"))).toBe("2026-02-28");
     expect(isValidIsoDate("2026-02-30")).toBe(false);
     expect(isValidIsoDate("26/07/20")).toBe(false);
+  });
+});
+
+describe("currentLiveMinute / liveHasEnded", () => {
+  it("counts the small hours after 24:00", () => {
+    expect(currentLiveMinute(new Date("2026-08-01T13:30:00Z"))).toBe(20 * 60 + 30); // 20:30 BKK
+    expect(currentLiveMinute(new Date("2026-08-01T18:15:00Z"))).toBe(25 * 60 + 15); // 01:15 BKK
+  });
+
+  it("treats a slot as over once its end time has passed", () => {
+    const now = { date: "2026-08-01", minute: 20 * 60 };
+    expect(liveHasEnded({ date: "2026-07-31", endMinute: 26 * 60 }, now)).toBe(true);
+    expect(liveHasEnded({ date: "2026-08-01", endMinute: 20 * 60 }, now)).toBe(true);
+    expect(liveHasEnded({ date: "2026-08-01", endMinute: 22 * 60 }, now)).toBe(false);
   });
 });

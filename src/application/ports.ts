@@ -2,6 +2,7 @@
 // tests can pass simple fakes.
 
 import type { BookingWindow } from "@/domain/booking";
+import type { LateReason, RateType } from "@/domain/payment";
 import type { Role } from "@/domain/roles";
 import type { SlotStatus } from "@/domain/slot-rules";
 
@@ -130,4 +131,67 @@ export interface Notifier {
 
 export interface Clock {
   today(): string; // current live date, "YYYY-MM-DD"
+  nowMinute(): number; // current live-day minute
+}
+
+export type ApprovalStatus = "pending" | "approved" | "locked";
+
+export interface PaymentAmounts {
+  actualStart: number;
+  actualEnd: number;
+  lateReason: LateReason;
+  note: string;
+  basePay: number;
+  deduction: number;
+  otPay: number;
+  finalPay: number;
+}
+
+export interface Payment extends PaymentAmounts {
+  id: string;
+  slotId: string;
+  approvalStatus: ApprovalStatus;
+  recordedByName: string;
+  approvedByName: string | null;
+}
+
+// A finished live as Payment Tracking shows it, with its payment if recorded.
+export interface PaymentRow {
+  slotId: string;
+  date: string;
+  startMinute: number;
+  endMinute: number;
+  brandName: string;
+  platform: string;
+  roomName: string;
+  mc: { nickname: string; status: string; rateType: RateType; rate: number };
+  slotStatus: SlotStatus;
+  payment: Payment | null;
+}
+
+export interface PaymentSummary {
+  toRecord: number;
+  pending: { count: number; total: number };
+  approved: { count: number; total: number };
+  locked: { count: number; total: number };
+  otTotal: number;
+}
+
+export interface PaymentRepository {
+  // Slots with an MC that are either confirmed and over, or already recorded.
+  listRows(filter: {
+    from: string;
+    to: string;
+    endedBefore: { date: string; minute: number };
+    tab: "toRecord" | ApprovalStatus | "all";
+    limit: number;
+  }): Promise<PaymentRow[]>;
+  summary(from: string, to: string, endedBefore: { date: string; minute: number }): Promise<PaymentSummary>;
+  findRow(slotId: string): Promise<PaymentRow | null>;
+  findById(paymentId: string): Promise<(Payment & { row: PaymentRow }) | null>;
+  // Saves the payment and marks the slot completed in one transaction.
+  // Returns false if the payment was approved in the meantime.
+  record(slotId: string, amounts: PaymentAmounts, recordedById: string): Promise<boolean>;
+  // Moves from one approval status to the next; false if it had already moved.
+  advance(paymentId: string, from: ApprovalStatus, to: ApprovalStatus, byUserId: string): Promise<boolean>;
 }

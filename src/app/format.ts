@@ -50,3 +50,20 @@ export const STATUS_META: Record<SlotStatus, { label: string; className: string;
 };
 
 export const STATUS_ORDER: SlotStatus[] = ["waiting", "confirmed", "conflict", "completed"];
+
+// "฿12,500" — formatted by hand so server and browser always agree.
+export const baht = (n: number) =>
+  `${n < 0 ? "-" : ""}฿${String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+
+export const APPROVAL_META = {
+  toRecord: { label: "รอบันทึก", className: "bg-line text-soft" },
+  pending: { label: "Pending", className: "bg-waiting-bg text-waiting-fg" },
+  approved: { label: "Approved", className: "bg-confirmed-bg text-confirmed-fg" },
+  locked: { label: "Locked", className: "bg-completed-bg text-completed-fg" },
+} as const;
+
+export const LATE_REASON_LABEL = {
+  normal: "ปกติ",
+  late: "MC มาสาย",
+  technical: "ปัญหาเทคนิค",
+} as const;

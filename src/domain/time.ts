@@ -71,3 +71,18 @@ export function isValidIsoDate(iso: string): boolean {
 // Earliest start and latest end a slot may have: 07:00 to 02:00 next morning.
 export const LIVE_DAY_START = 7 * 60;
 export const LIVE_DAY_END = 26 * 60;
+
+// Current time in Thailand as live-day minutes (00:00–05:59 count as 24:00+).
+export function currentLiveMinute(now: Date = new Date()): number {
+  const bangkok = new Date(now.getTime() + BANGKOK_OFFSET_MIN * 60_000);
+  const h = bangkok.getUTCHours();
+  return (h < DAY_ROLLOVER_HOUR ? h + 24 : h) * 60 + bangkok.getUTCMinutes();
+}
+
+// Whether a slot on `date` ending at `endMinute` is over at the given moment.
+export function liveHasEnded(
+  slot: { date: string; endMinute: number },
+  now: { date: string; minute: number },
+): boolean {
+  return slot.date < now.date || (slot.date === now.date && slot.endMinute <= now.minute);
+}

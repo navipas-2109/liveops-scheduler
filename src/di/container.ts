@@ -5,6 +5,9 @@ import "server-only";
 import type { SessionUser } from "@/application/auth/login";
 import { login } from "@/application/auth/login";
 import { saveBookingWindow } from "@/application/booking-windows/save-booking-window";
+import { advancePayment } from "@/application/payments/approve-payment";
+import { getPaymentPage, type PaymentTab } from "@/application/payments/get-payment-page";
+import { recordOnTime, recordPayment, type RecordInput } from "@/application/payments/record-payment";
 import type { Clock } from "@/application/ports";
 import { checkRoomAvailability } from "@/application/slots/check-room";
 import { deleteSlot } from "@/application/slots/delete-slot";
@@ -12,7 +15,7 @@ import { getTodayAlerts } from "@/application/slots/get-alerts";
 import { getBrandSlotPage, type BrandSlotPageQuery } from "@/application/slots/get-brand-slot-page";
 import { saveSlot, type SlotInput } from "@/application/slots/save-slot";
 import type { BookingWindow } from "@/domain/booking";
-import { currentLiveDate, toIsoDate } from "@/domain/time";
+import { currentLiveDate, currentLiveMinute, toIsoDate } from "@/domain/time";
 import { bcryptHasher } from "@/infrastructure/auth/bcrypt-hasher";
 import { larkNotifier } from "@/infrastructure/lark-notifier";
 import {
@@ -20,10 +23,14 @@ import {
   prismaBrandRepository,
   prismaRoomRepository,
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
+import { prismaPaymentRepository } from "@/infrastructure/repositories/prisma-payment-repository";
 import { prismaSlotRepository } from "@/infrastructure/repositories/prisma-slot-repository";
 import { prismaUserRepository } from "@/infrastructure/repositories/prisma-user-repository";
 
-const clock: Clock = { today: () => toIsoDate(currentLiveDate()) };
+const clock: Clock = {
+  today: () => toIsoDate(currentLiveDate()),
+  nowMinute: () => currentLiveMinute(),
+};
 
 const deps = {
   users: prismaUserRepository,
@@ -31,6 +38,7 @@ const deps = {
   brands: prismaBrandRepository,
   rooms: prismaRoomRepository,
   bookingWindows: prismaBookingWindowRepository,
+  payments: prismaPaymentRepository,
   passwords: bcryptHasher,
   notifier: larkNotifier,
   clock,
@@ -49,4 +57,10 @@ export const services = {
     checkRoomAvailability(deps, query),
   saveBookingWindow: (user: SessionUser, window: BookingWindow) =>
     saveBookingWindow(deps, user, window),
+  getPaymentPage: (user: SessionUser, query: { month: string; tab: PaymentTab }) =>
+    getPaymentPage(deps, user, query),
+  recordPayment: (user: SessionUser, input: RecordInput) => recordPayment(deps, user, input),
+  recordOnTime: (user: SessionUser, slotId: string) => recordOnTime(deps, user, slotId),
+  advancePayment: (user: SessionUser, paymentId: string, to: "approved" | "locked") =>
+    advancePayment(deps, user, paymentId, to),
 };
