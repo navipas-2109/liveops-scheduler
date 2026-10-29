@@ -88,6 +88,36 @@ async function seedMonth(month: string, reset: boolean) {
   console.log(`Demo data: ${created} slots in ${month}, booking window open from ${openFrom.toISOString().slice(0, 10)}`);
 }
 
+// Sample shifts for the month, derived from which PD runs which lives:
+// from an hour before their first live to an hour after their last, at
+// least 8 hours. Runs once per month, also for months loaded earlier.
+async function seedShifts(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  const from = new Date(Date.UTC(y, m - 1, 1));
+  const to = new Date(Date.UTC(y, m, 0));
+  if ((await prisma.shift.count({ where: { date: { gte: from, lte: to } } })) > 0) {
+    console.log(`Demo shifts: ${month} already has shifts, skipped`);
+    return;
+  }
+  const groups = await prisma.slot.groupBy({
+    by: ["date", "producerId"],
+    where: { date: { gte: from, lte: to }, producerId: { not: null } },
+    _min: { startMinute: true },
+    _max: { endMinute: true },
+  });
+  const shifts = groups.map((g) => {
+    const start = Math.max(g._min.startMinute! - 60, 6 * 60);
+    return {
+      producerId: g.producerId!,
+      date: g.date,
+      shiftStart: start,
+      shiftEnd: Math.min(Math.max(g._max.endMinute! + 60, start + 8 * 60), 27 * 60),
+    };
+  });
+  await prisma.shift.createMany({ data: shifts });
+  console.log(`Demo shifts: ${shifts.length} shifts in ${month}`);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const reset = args.includes("--reset") || process.env.SEED_DEMO_RESET === "1";
@@ -99,7 +129,16 @@ async function main() {
     console.log("Demo data: no months given, nothing to do");
     return;
   }
-  for (const month of months) await seedMonth(month, reset);
+  for (const month of months) {
+    await seedMonth(month, reset);
+    if (reset) {
+      const [y, m] = month.split("-").map(Number);
+      await prisma.shift.deleteMany({
+        where: { date: { gte: new Date(Date.UTC(y, m - 1, 1)), lte: new Date(Date.UTC(y, m, 0)) } },
+      });
+    }
+    await seedShifts(month);
+  }
 }
 
 main()

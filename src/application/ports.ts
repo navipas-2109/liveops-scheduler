@@ -143,6 +143,19 @@ export interface SlotRepository {
   withDatesLocked<T>(dates: string[], work: (session: SlotWriteSession) => Promise<T>): Promise<T>;
 }
 
+export interface ShiftItem {
+  producerId: string;
+  producerName: string;
+  position: string;
+  date: string;
+  shiftStart: number; // live-day minutes
+  shiftEnd: number;
+}
+
+export interface ShiftRepository {
+  listInRange(from: string, to: string): Promise<ShiftItem[]>;
+}
+
 export type NotifyChannel = "planner" | "operation" | "finance";
 
 export interface Notifier {

@@ -9,6 +9,8 @@ import type {
   Clock,
   Room,
   RoomRepository,
+  ShiftItem,
+  ShiftRepository,
   SlotListItem,
   SlotRepository,
   StatusCounts,
@@ -16,6 +18,8 @@ import type {
 import { monthRange } from "./get-brand-slot-page";
 
 export type ScheduleView = "month" | "week" | "day";
+// How the day view splits into rows: one per room, or one per Producer on shift.
+export type DayGrouping = "room" | "pd";
 
 export interface DaySummary {
   counts: StatusCounts;
@@ -30,7 +34,9 @@ export interface SchedulePageData {
   to: string;
   today: string;
   roomId: string | null;
+  grouping: DayGrouping;
   rooms: Room[];
+  shifts: ShiftItem[]; // day view grouped by PD only
   // Month view gets per-day summaries; week and day views get the slots.
   summaries: Record<string, DaySummary>;
   slots: SlotListItem[];
@@ -67,26 +73,44 @@ export async function getSchedulePage(
     rooms: RoomRepository;
     brands: BrandRepository;
     bookingWindows: BookingWindowRepository;
+    shifts: ShiftRepository;
     clock: Clock;
   },
   user: SessionUser,
-  query: { view: ScheduleView; date: string | null; roomId: string | null },
+  query: { view: ScheduleView; date: string | null; roomId: string | null; grouping: DayGrouping },
 ): Promise<SchedulePageData> {
   const today = deps.clock.today();
   const date = query.date ?? today;
   const { from, to } = rangeFor(query.view, date);
   const canBook = user.role === "AE" || user.role === "MANAGER";
 
-  const [rooms, windows, brands, slots] = await Promise.all([
+  const byPd = query.view === "day" && query.grouping === "pd";
+  const [rooms, windows, brands, slots, shifts] = await Promise.all([
     deps.rooms.listAll(),
     deps.bookingWindows.listAll(),
     !canBook ? Promise.resolve([]) : user.role === "AE" ? deps.brands.listForAe(user.userId) : deps.brands.listAll(),
     deps.slots.list({ from, to, roomId: query.roomId ?? undefined }),
+    byPd ? deps.shifts.listInRange(from, to) : Promise.resolve([]),
   ]);
+  const grouping: DayGrouping = byPd ? "pd" : "room";
   const roomId = query.roomId && rooms.some((r) => r.id === query.roomId) ? query.roomId : null;
 
   if (query.view !== "month") {
-    return { view: query.view, date, from, to, today, roomId, rooms, summaries: {}, slots, windows, brands };
+    return {
+      view: query.view,
+      date,
+      from,
+      to,
+      today,
+      roomId,
+      grouping,
+      rooms,
+      shifts,
+      summaries: {},
+      slots,
+      windows,
+      brands,
+    };
   }
 
   // A month can hold over a thousand slots, so only send what the grid shows.
@@ -97,5 +121,19 @@ export async function getSchedulePage(
     day.total++;
     if (day.brands.length < BRANDS_PER_DAY) day.brands.push({ name: s.brandName, status: s.status });
   }
-  return { view: "month", date, from, to, today, roomId, rooms, summaries, slots: [], windows, brands };
+  return {
+    view: "month",
+    date,
+    from,
+    to,
+    today,
+    roomId,
+    grouping,
+    rooms,
+    shifts: [],
+    summaries,
+    slots: [],
+    windows,
+    brands,
+  };
 }

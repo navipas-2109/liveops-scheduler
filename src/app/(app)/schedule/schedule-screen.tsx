@@ -14,7 +14,7 @@ import type { SlotFormValues } from "../brand-slots/actions";
 import { SlotDrawer } from "../brand-slots/slot-drawer";
 import { DayTimeline } from "./day-timeline";
 import { MonthGrid } from "./month-grid";
-import { roomColors } from "./schedule-shared";
+import { pdRows, roomColors, type TimelineRow } from "./schedule-shared";
 import { SlotDetail } from "./slot-detail";
 import { WeekTimeline } from "./week-timeline";
 
@@ -66,6 +66,19 @@ export function ScheduleScreen({ data, role, userId }: Props) {
     });
   }
 
+  const byPd = data.grouping === "pd";
+  const dayRows: TimelineRow[] = byPd
+    ? pdRows(data.slots, data.shifts)
+    : (data.roomId ? data.rooms.filter((r) => r.id === data.roomId) : data.rooms).map((room) => ({
+        id: room.id,
+        title: room.shortName,
+        subtitle: `${room.building} F${room.floor} · ${room.size}`,
+        accent: colors[room.id],
+        shift: null,
+        slots: data.slots.filter((s) => s.roomId === room.id),
+        roomId: room.id,
+      }));
+
   const title =
     data.view === "day"
       ? dayLabel(data.date)
@@ -111,6 +124,29 @@ export function ScheduleScreen({ data, role, userId }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {data.view === "day" && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted">
+              แบ่งแถวตาม
+              <div className="flex overflow-hidden rounded-lg border border-line-strong">
+                {(
+                  [
+                    ["room", "ห้อง"],
+                    ["pd", "PD"],
+                  ] as const
+                ).map(([g, label]) => (
+                  <Link
+                    key={g}
+                    href={href({ by: g === "room" ? null : g })}
+                    className={`px-2.5 py-1 text-xs font-medium ${
+                      data.grouping === g ? "bg-primary text-white" : "bg-field text-muted hover:text-soft"
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
           <select
             value={data.roomId ?? ""}
             onChange={(e) => router.replace(href({ room: e.target.value || null }), { scroll: false })}
@@ -158,12 +194,15 @@ export function ScheduleScreen({ data, role, userId }: Props) {
           {data.view === "day" && (
             <DayTimeline
               date={data.date}
-              rooms={data.roomId ? data.rooms.filter((r) => r.id === data.roomId) : data.rooms}
-              slots={data.slots}
+              rows={dayRows}
+              rowLabel={byPd ? "Producer ที่เข้ากะ" : "ห้อง"}
+              slotCount={data.slots.length}
               colors={colors}
+              blockDetail={(s) => (byPd ? s.roomName : (s.mcName ?? "รอ MC"))}
               selectedId={selected?.id ?? null}
               onSelect={setSelected}
               onAdd={canBookOn(data.date) ? (roomId, minute) => addAt(data.date, roomId, minute) : null}
+              emptyText={byPd ? "วันนี้ยังไม่มีกะ Producer และยังไม่มีสล็อต" : "ไม่มีห้อง"}
             />
           )}
         </div>

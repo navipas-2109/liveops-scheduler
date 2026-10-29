@@ -1,6 +1,6 @@
-import type { Room, SlotListItem } from "@/application/ports";
+import type { Room, ShiftItem, SlotListItem } from "@/application/ports";
 import type { SlotStatus } from "@/domain/slot-rules";
-import { LIVE_DAY_END, LIVE_DAY_START } from "@/domain/time";
+import { fromLiveMinutes, LIVE_DAY_END, LIVE_DAY_START } from "@/domain/time";
 
 // Room accent colours from the prototype, assigned in room order.
 const ROOM_COLORS = [
@@ -43,4 +43,70 @@ export function assignLanes(slots: SlotListItem[]): SlotListItem[][] {
     else lanes.push([slot]);
   }
   return lanes;
+}
+
+export interface TimelineRow {
+  id: string;
+  title: string;
+  subtitle: string;
+  accent: string;
+  shift: { start: number; end: number } | null;
+  slots: SlotListItem[];
+  roomId: string | null; // set when empty cells in this row can add a slot
+  warn?: boolean;
+}
+
+const NO_PD = "__none__";
+
+// Day view grouped by Producer: everyone on shift that day (by shift start),
+// then anyone assigned a slot without a shift, then slots with no PD yet.
+export function pdRows(slots: SlotListItem[], shifts: ShiftItem[]): TimelineRow[] {
+  const rows = new Map<string, TimelineRow>();
+  for (const sh of shifts) {
+    const existing = rows.get(sh.producerId);
+    if (existing?.shift) {
+      // Two shifts in one day: show the span from first start to last end.
+      existing.shift = {
+        start: Math.min(existing.shift.start, sh.shiftStart),
+        end: Math.max(existing.shift.end, sh.shiftEnd),
+      };
+      continue;
+    }
+    rows.set(sh.producerId, {
+      id: sh.producerId,
+      title: sh.producerName,
+      subtitle: `${sh.position} · กะ ${fromLiveMinutes(sh.shiftStart)}–${fromLiveMinutes(sh.shiftEnd)}`,
+      accent: "#4c8dff",
+      shift: { start: sh.shiftStart, end: sh.shiftEnd },
+      slots: [],
+      roomId: null,
+    });
+  }
+  for (const s of slots) {
+    const key = s.producerId ?? NO_PD;
+    if (!rows.has(key)) {
+      rows.set(key, {
+        id: key,
+        title: s.producerId ? (s.producerName ?? "—") : "ยังไม่มี PD",
+        subtitle: s.producerId ? "ไม่มีกะในวันนี้" : "สล็อตที่ยังไม่ได้ลง Producer",
+        accent: s.producerId ? "#f6c26b" : "#f59e9e",
+        shift: null,
+        slots: [],
+        roomId: null,
+        warn: true,
+      });
+    }
+    rows.get(key)!.slots.push(s);
+  }
+  const rank = (r: TimelineRow) => (r.id === NO_PD ? 2 : r.shift ? 0 : 1);
+  return [...rows.values()].sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (a.shift?.start ?? 0) - (b.shift?.start ?? 0) ||
+      a.title.localeCompare(b.title),
+  );
+}
+
+export function outsideShift(slot: SlotListItem, shift: TimelineRow["shift"]): boolean {
+  return !!shift && (slot.startMinute < shift.start || slot.endMinute > shift.end);
 }

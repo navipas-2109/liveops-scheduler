@@ -15,7 +15,7 @@ import { deleteSlot } from "@/application/slots/delete-slot";
 import { getTodayAlerts } from "@/application/slots/get-alerts";
 import { getBrandSlotPage, type BrandSlotPageQuery } from "@/application/slots/get-brand-slot-page";
 import { getMcPlanningPage } from "@/application/slots/get-mc-planning-page";
-import { getSchedulePage, type ScheduleView } from "@/application/slots/get-schedule-page";
+import { getSchedulePage, type DayGrouping, type ScheduleView } from "@/application/slots/get-schedule-page";
 import { saveSlot, type SlotInput } from "@/application/slots/save-slot";
 import type { BookingWindow } from "@/domain/booking";
 import type { SlotStatus } from "@/domain/slot-rules";
@@ -28,6 +28,7 @@ import {
   prismaMcRepository,
   prismaRoomRepository,
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
+import { prismaShiftRepository } from "@/infrastructure/repositories/prisma-shift-repository";
 import { prismaPaymentRepository } from "@/infrastructure/repositories/prisma-payment-repository";
 import { prismaSlotRepository } from "@/infrastructure/repositories/prisma-slot-repository";
 import { prismaUserRepository } from "@/infrastructure/repositories/prisma-user-repository";
@@ -45,6 +46,7 @@ const deps = {
   mcs: prismaMcRepository,
   bookingWindows: prismaBookingWindowRepository,
   payments: prismaPaymentRepository,
+  shifts: prismaShiftRepository,
   passwords: bcryptHasher,
   notifier: larkNotifier,
   clock,
@@ -65,7 +67,7 @@ export const services = {
     saveBookingWindow(deps, user, window),
   getSchedulePage: (
     user: SessionUser,
-    query: { view: ScheduleView; date: string | null; roomId: string | null },
+    query: { view: ScheduleView; date: string | null; roomId: string | null; grouping: DayGrouping },
   ) => getSchedulePage(deps, user, query),
   getMcPlanningPage: (
     user: SessionUser,
