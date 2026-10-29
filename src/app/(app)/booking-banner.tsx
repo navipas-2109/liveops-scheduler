@@ -3,8 +3,8 @@
 import { CalendarCheck2, CalendarClock, Pencil } from "lucide-react";
 import { useState } from "react";
 import type { BookingWindow } from "@/domain/booking";
-import { monthLabel, shiftMonth, shortDateLabel } from "../../format";
-import { saveBookingWindowAction } from "./actions";
+import { monthLabel, shiftMonth, shortDateLabel } from "../format";
+import { saveBookingWindowAction } from "./booking-actions";
 
 interface Props {
   window: BookingWindow | null;

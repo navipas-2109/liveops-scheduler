@@ -40,6 +40,20 @@ export interface Room {
   size: string;
 }
 
+export interface Mc {
+  id: string;
+  nickname: string;
+  fullName: string;
+  status: string; // "Full-Time" | "Exclusive" | "Freelance" | "Trainee"
+  rateType: RateType;
+  rate: number;
+}
+
+export interface McRepository {
+  listAll(): Promise<Mc[]>;
+  findById(id: string): Promise<Mc | null>;
+}
+
 export interface RoomRepository {
   listAll(): Promise<Room[]>;
 }
@@ -110,6 +124,7 @@ export interface SlotWriteSession {
   update(id: string, changes: SlotChanges): Promise<SlotRecord>;
   remove(id: string): Promise<void>;
   setStatus(id: string, status: SlotStatus): Promise<void>;
+  setMc(id: string, mcId: string | null, plannerId: string): Promise<void>;
 }
 
 export interface SlotRepository {

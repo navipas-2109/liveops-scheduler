@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { BookingWindow } from "@/domain/booking";
 import { toLiveMinutes as t } from "@/domain/time";
 import type { SessionUser } from "../auth/login";
-import type { NotifyChannel, SlotRecord, SlotRepository, SlotWriteSession } from "../ports";
+import type { McRepository, NotifyChannel, SlotRecord, SlotRepository, SlotWriteSession } from "../ports";
+import { assignMc, getBusyMcs } from "./assign-mc";
 import { deleteSlot } from "./delete-slot";
 import { saveSlot, type SaveSlotDeps, type SlotInput } from "./save-slot";
 
@@ -40,13 +41,25 @@ function fakeDeps(today = "2026-10-29") {
     setStatus: async (id, status) => {
       rows.find((r) => r.id === id)!.status = status;
     },
+    setMc: async (id, mcId) => {
+      rows.find((r) => r.id === id)!.mcId = mcId;
+    },
   };
   const slots = {
     findById: async (id: string) => rows.find((r) => r.id === id) ?? null,
+    list: async ({ from }: { from: string }) =>
+      rows.filter((r) => r.date === from).map((r) => ({ ...r, brandName: "PUMA", platform: "TikTok" })),
     withDatesLocked: (_dates: string[], work: (s: SlotWriteSession) => Promise<unknown>) => work(session),
   } as unknown as SlotRepository;
   const brand = (id: string) => ({ id, brandName: id.toUpperCase(), platform: "TikTok" });
-  const deps: SaveSlotDeps = {
+  const deps: SaveSlotDeps & { mcs: McRepository } = {
+    mcs: {
+      listAll: async () => [],
+      findById: async (id) =>
+        ["boss", "sari"].includes(id)
+          ? { id, nickname: id, fullName: id, status: "Exclusive", rateType: "per_slot", rate: 8000 }
+          : null,
+    },
     slots,
     brands: {
       listAll: async () => [brand("puma"), brand("cosrx")],
@@ -142,5 +155,46 @@ describe("saveSlot", () => {
     const res = await deleteSlot(env.deps, ae, b.ok ? b.slot.id : "");
     expect(res.ok).toBe(true);
     expect(env.rows.map((r) => r.status)).toEqual(["confirmed"]);
+  });
+});
+
+describe("assignMc", () => {
+  const planner: SessionUser = { userId: "p1", name: "Planner", role: "PLANNER" };
+
+  it("confirms the slot and blocks a double-booked MC", async () => {
+    const env = fakeDeps();
+    const a = await saveSlot(env.deps, ae, input());
+    const b = await saveSlot(env.deps, ae, input({ roomId: "R02", startMinute: t("11:00"), endMinute: t("13:00") }));
+    const [aId, bId] = [a.ok ? a.slot.id : "", b.ok ? b.slot.id : ""];
+
+    expect(await assignMc(env.deps, planner, aId, "boss")).toEqual({ ok: true });
+    expect(env.rows[0].status).toBe("confirmed");
+    expect(await getBusyMcs(env.deps, bId)).toHaveProperty("boss");
+    expect(await assignMc(env.deps, planner, bId, "boss")).toEqual({
+      ok: false,
+      error: "boss ติดไลฟ์อื่นช่วง 10:00–12:00",
+    });
+    expect(await assignMc(env.deps, planner, bId, "sari")).toEqual({ ok: true });
+    expect(env.sent.at(-1)!.text).toContain("ลง MC sari");
+  });
+
+  it("removing the MC puts the slot back to waiting; AEs can't assign", async () => {
+    const env = fakeDeps();
+    const a = await saveSlot(env.deps, ae, input());
+    const id = a.ok ? a.slot.id : "";
+    expect((await assignMc(env.deps, ae, id, "boss")).ok).toBe(false);
+    await assignMc(env.deps, planner, id, "boss");
+    await assignMc(env.deps, planner, id, null);
+    expect(env.rows[0]).toMatchObject({ mcId: null, status: "waiting" });
+  });
+
+  it("won't change the MC of a completed live", async () => {
+    const env = fakeDeps();
+    const a = await saveSlot(env.deps, ae, input());
+    env.rows[0].status = "completed";
+    expect(await assignMc(env.deps, planner, a.ok ? a.slot.id : "", "boss")).toEqual({
+      ok: false,
+      error: "ไลฟ์นี้จบและบันทึกแล้ว เปลี่ยน MC ไม่ได้",
+    });
   });
 });

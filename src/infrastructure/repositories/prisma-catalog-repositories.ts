@@ -1,8 +1,12 @@
+import type { Mc as DbMc } from "@prisma/client";
 import type {
   BookingWindowRepository,
   BrandRepository,
+  Mc,
+  McRepository,
   RoomRepository,
 } from "@/application/ports";
+import type { RateType } from "@/domain/payment";
 import { fromIsoDate, toIsoDate } from "@/domain/time";
 import { prisma } from "../prisma";
 
@@ -54,5 +58,34 @@ export const prismaBookingWindowRepository: BookingWindowRepository = {
       create: { targetMonth: window.targetMonth, createdById, ...data },
       update: data,
     });
+  },
+};
+
+const MC_STATUS_LABEL = {
+  FULL_TIME: "Full-Time",
+  EXCLUSIVE: "Exclusive",
+  FREELANCE: "Freelance",
+  TRAINEE: "Trainee",
+} as const;
+
+function toMc(m: DbMc): Mc {
+  return {
+    id: m.id,
+    nickname: m.nickname,
+    fullName: m.fullName,
+    status: MC_STATUS_LABEL[m.status],
+    rateType: m.rateType.toLowerCase() as RateType,
+    rate: m.rate,
+  };
+}
+
+export const prismaMcRepository: McRepository = {
+  async listAll() {
+    const mcs = await prisma.mc.findMany({ orderBy: [{ status: "asc" }, { nickname: "asc" }] });
+    return mcs.map(toMc);
+  },
+  async findById(id) {
+    const mc = await prisma.mc.findUnique({ where: { id } });
+    return mc ? toMc(mc) : null;
   },
 };

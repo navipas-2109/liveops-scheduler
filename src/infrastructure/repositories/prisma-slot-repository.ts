@@ -72,6 +72,9 @@ function sessionFor(db: Db): SlotWriteSession {
     async setStatus(id, status) {
       await db.slot.update({ where: { id }, data: { status: toDbStatus(status) } });
     },
+    async setMc(id, mcId, plannerId) {
+      await db.slot.update({ where: { id }, data: { mcId, plannerId } });
+    },
   };
 }
 

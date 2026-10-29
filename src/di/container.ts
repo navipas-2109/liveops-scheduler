@@ -9,18 +9,22 @@ import { advancePayment } from "@/application/payments/approve-payment";
 import { getPaymentPage, type PaymentTab } from "@/application/payments/get-payment-page";
 import { recordOnTime, recordPayment, type RecordInput } from "@/application/payments/record-payment";
 import type { Clock } from "@/application/ports";
+import { assignMc, getBusyMcs } from "@/application/slots/assign-mc";
 import { checkRoomAvailability } from "@/application/slots/check-room";
 import { deleteSlot } from "@/application/slots/delete-slot";
 import { getTodayAlerts } from "@/application/slots/get-alerts";
 import { getBrandSlotPage, type BrandSlotPageQuery } from "@/application/slots/get-brand-slot-page";
+import { getMcPlanningPage } from "@/application/slots/get-mc-planning-page";
 import { saveSlot, type SlotInput } from "@/application/slots/save-slot";
 import type { BookingWindow } from "@/domain/booking";
+import type { SlotStatus } from "@/domain/slot-rules";
 import { currentLiveDate, currentLiveMinute, toIsoDate } from "@/domain/time";
 import { bcryptHasher } from "@/infrastructure/auth/bcrypt-hasher";
 import { larkNotifier } from "@/infrastructure/lark-notifier";
 import {
   prismaBookingWindowRepository,
   prismaBrandRepository,
+  prismaMcRepository,
   prismaRoomRepository,
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
 import { prismaPaymentRepository } from "@/infrastructure/repositories/prisma-payment-repository";
@@ -37,6 +41,7 @@ const deps = {
   slots: prismaSlotRepository,
   brands: prismaBrandRepository,
   rooms: prismaRoomRepository,
+  mcs: prismaMcRepository,
   bookingWindows: prismaBookingWindowRepository,
   payments: prismaPaymentRepository,
   passwords: bcryptHasher,
@@ -57,6 +62,13 @@ export const services = {
     checkRoomAvailability(deps, query),
   saveBookingWindow: (user: SessionUser, window: BookingWindow) =>
     saveBookingWindow(deps, user, window),
+  getMcPlanningPage: (
+    user: SessionUser,
+    query: { month: string; day: string | null; status: SlotStatus | null },
+  ) => getMcPlanningPage(deps, user, query),
+  getBusyMcs: (slotId: string) => getBusyMcs(deps, slotId),
+  assignMc: (user: SessionUser, slotId: string, mcId: string | null) =>
+    assignMc(deps, user, slotId, mcId),
   getPaymentPage: (user: SessionUser, query: { month: string; tab: PaymentTab }) =>
     getPaymentPage(deps, user, query),
   recordPayment: (user: SessionUser, input: RecordInput) => recordPayment(deps, user, input),
