@@ -86,6 +86,10 @@ export interface SlotListItem extends SlotRecord {
   roomName: string;
   aeName: string;
   mcName: string | null;
+  plannerName: string | null;
+  producerName: string | null;
+  admin1Name: string | null;
+  admin2Name: string | null;
 }
 
 export type NewSlot = Pick<
@@ -99,6 +103,7 @@ export interface SlotListFilter {
   from: string;
   to: string;
   aeId?: string;
+  roomId?: string;
   brandName?: string;
   status?: SlotStatus;
   limit?: number;

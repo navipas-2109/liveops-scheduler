@@ -43,6 +43,10 @@ const listSelect = {
   room: { select: { shortName: true } },
   ae: { select: { name: true } },
   mc: { select: { nickname: true } },
+  planner: { select: { name: true } },
+  producer: { select: { name: true } },
+  admin1: { select: { name: true } },
+  admin2: { select: { name: true } },
 } satisfies Prisma.SlotSelect;
 
 function sessionFor(db: Db): SlotWriteSession {
@@ -99,6 +103,7 @@ export const prismaSlotRepository: SlotRepository = {
       where: {
         date: { gte: fromIsoDate(filter.from), lte: fromIsoDate(filter.to) },
         aeId: filter.aeId,
+        roomId: filter.roomId,
         status: filter.status ? toDbStatus(filter.status) : undefined,
         brand: filter.brandName ? { brandName: filter.brandName } : undefined,
       },
@@ -107,13 +112,17 @@ export const prismaSlotRepository: SlotRepository = {
       take: filter.limit,
     });
     return rows.map(
-      ({ brand, room, ae, mc, ...row }): SlotListItem => ({
+      ({ brand, room, ae, mc, planner, producer, admin1, admin2, ...row }): SlotListItem => ({
         ...toRecord(row),
         brandName: brand.brandName,
         platform: brand.platform,
         roomName: room.shortName,
         aeName: ae.name,
         mcName: mc?.nickname ?? null,
+        plannerName: planner?.name ?? null,
+        producerName: producer?.name ?? null,
+        admin1Name: admin1?.name ?? null,
+        admin2Name: admin2?.name ?? null,
       }),
     );
   },

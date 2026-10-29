@@ -15,6 +15,7 @@ import { deleteSlot } from "@/application/slots/delete-slot";
 import { getTodayAlerts } from "@/application/slots/get-alerts";
 import { getBrandSlotPage, type BrandSlotPageQuery } from "@/application/slots/get-brand-slot-page";
 import { getMcPlanningPage } from "@/application/slots/get-mc-planning-page";
+import { getSchedulePage, type ScheduleView } from "@/application/slots/get-schedule-page";
 import { saveSlot, type SlotInput } from "@/application/slots/save-slot";
 import type { BookingWindow } from "@/domain/booking";
 import type { SlotStatus } from "@/domain/slot-rules";
@@ -62,6 +63,10 @@ export const services = {
     checkRoomAvailability(deps, query),
   saveBookingWindow: (user: SessionUser, window: BookingWindow) =>
     saveBookingWindow(deps, user, window),
+  getSchedulePage: (
+    user: SessionUser,
+    query: { view: ScheduleView; date: string | null; roomId: string | null },
+  ) => getSchedulePage(deps, user, query),
   getMcPlanningPage: (
     user: SessionUser,
     query: { month: string; day: string | null; status: SlotStatus | null },

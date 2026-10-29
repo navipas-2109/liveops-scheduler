@@ -48,7 +48,9 @@ function fakeDeps(today = "2026-10-29") {
   const slots = {
     findById: async (id: string) => rows.find((r) => r.id === id) ?? null,
     list: async ({ from }: { from: string }) =>
-      rows.filter((r) => r.date === from).map((r) => ({ ...r, brandName: "PUMA", platform: "TikTok" })),
+      rows
+        .filter((r) => r.date === from)
+        .map((r) => ({ ...r, brandName: "PUMA", platform: "TikTok", roomName: r.roomId, aeName: "AE" })),
     withDatesLocked: (_dates: string[], work: (s: SlotWriteSession) => Promise<unknown>) => work(session),
   } as unknown as SlotRepository;
   const brand = (id: string) => ({ id, brandName: id.toUpperCase(), platform: "TikTok" });
