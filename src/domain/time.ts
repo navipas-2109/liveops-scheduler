@@ -30,3 +30,16 @@ export interface TimeRange {
 export function rangesOverlap(a: TimeRange, b: TimeRange): boolean {
   return a.startMinute < b.endMinute && b.startMinute < a.endMinute;
 }
+
+const BANGKOK_OFFSET_MIN = 7 * 60;
+
+// The live date "now" in Thailand: before 06:00 it is still the previous date.
+// Returned as a UTC-midnight Date, which is how DATE columns are read and written.
+export function currentLiveDate(now: Date = new Date()): Date {
+  const shifted = new Date(
+    now.getTime() + (BANGKOK_OFFSET_MIN - DAY_ROLLOVER_HOUR * 60) * 60_000,
+  );
+  return new Date(
+    Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()),
+  );
+}

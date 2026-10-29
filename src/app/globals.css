@@ -1,26 +1,38 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Colours taken from the prototype (live-scheduling-system.jsx). */
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-page: #f4f4ef;
+  --color-ink: #1a1a18;
+  --color-muted: #888888;
+  --color-line: #e0e0dc;
+  --color-line-soft: #f0f0eb;
+  --color-subtle: #f7f7f3;
+  --color-primary: #185fa5;
+  --color-accent: #378add;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-sidebar: #1c2333;
+  --color-sidebar-line: #2d3548;
+  --color-sidebar-control: #2a3347;
+  --color-sidebar-control-line: #3d4a63;
+  --color-sidebar-text: #9aa3b4;
+  --color-sidebar-active: #60a5fa;
+
+  /* Slot status: background / text / border / dot */
+  --color-waiting-bg: #faeeda;
+  --color-waiting-fg: #854f0b;
+  --color-conflict-bg: #fcebeb;
+  --color-conflict-fg: #791f1f;
+  --color-conflict-alert-bg: #3a1f1f;
+  --color-conflict-alert-fg: #f7c1c1;
+  --color-waiting-alert-fg: #fac775;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
 }
