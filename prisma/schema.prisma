@@ -1,0 +1,227 @@
+// LiveOps Scheduler database structure.
+//
+// Times of day are stored as "live-day minutes": minutes after 00:00 of the
+// slot's date, where 00:00–05:59 counts as the night after that date
+// (01:00 = 1500). This matches the prototype and lets a live run 22:00–02:00
+// without its end looking earlier than its start.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  AE
+  PLANNER
+  OPERATION
+  MANAGER
+}
+
+enum Building {
+  RIPPLES_STUDIO @map("Ripples Studio")
+  WITREE         @map("Witree")
+}
+
+enum RoomSize {
+  LARGE @map("Large")
+  SMALL @map("Small")
+}
+
+enum McStatus {
+  FULL_TIME @map("Full-Time")
+  EXCLUSIVE @map("Exclusive")
+  FREELANCE @map("Freelance")
+  TRAINEE   @map("Trainee")
+}
+
+enum RateType {
+  PER_SLOT @map("per_slot")
+  PER_HOUR @map("per_hour")
+}
+
+enum ProducerPosition {
+  TEAM_LEAD   @map("Producer Team Lead")
+  SENIOR      @map("Senior Producer")
+  PRODUCER    @map("Producer")
+  JR_PRODUCER @map("Jr. Producer")
+}
+
+enum SlotStatus {
+  EMPTY     @map("empty")
+  WAITING   @map("waiting")
+  CONFIRMED @map("confirmed")
+  CONFLICT  @map("conflict")
+  COMPLETED @map("completed")
+}
+
+enum LateReason {
+  NORMAL    @map("normal")
+  LATE      @map("late")
+  TECHNICAL @map("technical")
+}
+
+enum ApprovalStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  LOCKED   @map("locked")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  // Brands an AE manages; empty for other roles.
+  brands       Brand[]  @relation("UserBrands")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  aeSlots          Slot[]          @relation("SlotAe")
+  plannerSlots     Slot[]          @relation("SlotPlanner")
+  bookingWindows   BookingWindow[]
+  recordedPayments Payment[]       @relation("PaymentRecordedBy")
+  approvedPayments Payment[]       @relation("PaymentApprovedBy")
+
+  @@map("users")
+}
+
+model Room {
+  id              String   @id @default(cuid())
+  building        Building
+  floor           Int
+  roomNo          String   @map("room_no")
+  size            RoomSize
+  brandAssignment String   @default("") @map("brand_assignment")
+  shortName       String   @map("short_name")
+  sortOrder       Int      @map("sort_order")
+
+  slots Slot[]
+
+  @@map("rooms")
+}
+
+model Mc {
+  id       String   @id @default(cuid())
+  nickname String   @unique
+  fullName String   @map("full_name")
+  status   McStatus
+  rateType RateType @map("rate_type")
+  rate     Int // THB
+
+  slots Slot[]
+
+  @@map("mcs")
+}
+
+model Producer {
+  id       String           @id @default(cuid())
+  name     String           @unique
+  position ProducerPosition
+
+  producerSlots Slot[]  @relation("SlotProducer")
+  admin1Slots   Slot[]  @relation("SlotAdmin1")
+  admin2Slots   Slot[]  @relation("SlotAdmin2")
+  shifts        Shift[]
+
+  @@map("producers")
+}
+
+model Brand {
+  id        String @id @default(cuid())
+  brandName String @map("brand_name")
+  platform  String
+
+  aes   User[] @relation("UserBrands")
+  slots Slot[]
+
+  @@unique([brandName, platform])
+  @@map("brands")
+}
+
+model BookingWindow {
+  id          String   @id @default(cuid())
+  targetMonth String   @unique @map("target_month") // "2026-08"
+  openFrom    DateTime @map("open_from") @db.Date
+  openTo      DateTime @map("open_to") @db.Date
+  note        String   @default("")
+  createdById String   @map("created_by")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("booking_windows")
+}
+
+model Slot {
+  id          String     @id @default(cuid())
+  date        DateTime   @db.Date
+  startMinute Int        @map("start_minute")
+  endMinute   Int        @map("end_minute")
+  roomId      String     @map("room_id")
+  room        Room       @relation(fields: [roomId], references: [id])
+  brandId     String     @map("brand_id")
+  brand       Brand      @relation(fields: [brandId], references: [id])
+  campaign    String     @default("")
+  requirement String     @default("")
+  aeId        String     @map("ae_id")
+  ae          User       @relation("SlotAe", fields: [aeId], references: [id])
+  mcId        String?    @map("mc_id")
+  mc          Mc?        @relation(fields: [mcId], references: [id])
+  plannerId   String?    @map("planner_id")
+  planner     User?      @relation("SlotPlanner", fields: [plannerId], references: [id])
+  producerId  String?    @map("producer_id")
+  producer    Producer?  @relation("SlotProducer", fields: [producerId], references: [id])
+  admin1Id    String?    @map("admin1_id")
+  admin1      Producer?  @relation("SlotAdmin1", fields: [admin1Id], references: [id])
+  admin2Id    String?    @map("admin2_id")
+  admin2      Producer?  @relation("SlotAdmin2", fields: [admin2Id], references: [id])
+  status      SlotStatus @default(WAITING)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  payment Payment?
+
+  @@index([date, roomId])
+  @@index([date, mcId])
+  @@map("slots")
+}
+
+model Payment {
+  id             String         @id @default(cuid())
+  slotId         String         @unique @map("slot_id")
+  slot           Slot           @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  actualStart    Int            @map("actual_start") // live-day minutes
+  actualEnd      Int            @map("actual_end") // live-day minutes
+  lateReason     LateReason     @default(NORMAL) @map("late_reason")
+  note           String         @default("")
+  basePay        Int            @map("base_pay")
+  deduction      Int
+  otPay          Int            @map("ot_pay")
+  finalPay       Int            @map("final_pay")
+  approvalStatus ApprovalStatus @default(PENDING) @map("approval_status")
+  approvedById   String?        @map("approved_by")
+  approvedBy     User?          @relation("PaymentApprovedBy", fields: [approvedById], references: [id])
+  approvedAt     DateTime?      @map("approved_at")
+  recordedById   String         @map("recorded_by")
+  recordedBy     User           @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@map("payments")
+}
+
+model Shift {
+  id         String   @id @default(cuid())
+  producerId String   @map("producer_id")
+  producer   Producer @relation(fields: [producerId], references: [id])
+  date       DateTime @db.Date
+  shiftStart Int      @map("shift_start") // live-day minutes
+  shiftEnd   Int      @map("shift_end") // live-day minutes
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([date])
+  @@map("shifts")
+}
