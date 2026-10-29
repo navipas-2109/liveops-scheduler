@@ -1,16 +1,15 @@
-// Temporary content for pages that haven't been built yet.
-export function PagePlaceholder({ title, description }: { title: string; description: string }) {
+import { Inbox } from "lucide-react";
+
+// Temporary content for pages that haven't been built yet, styled like the
+// Ripples Operations empty state.
+export function PagePlaceholder() {
   return (
-    <>
-      <header className="border-b border-line bg-white px-5 py-3">
-        <h1 className="text-lg font-bold">{title}</h1>
-        <p className="text-xs text-muted">{description}</p>
-      </header>
-      <div className="p-4">
-        <div className="rounded-[10px] border border-dashed border-line bg-white px-4 py-10 text-center text-xs text-muted">
-          หน้านี้กำลังพัฒนา (coming in a later step)
-        </div>
+    <div className="flex flex-col items-center rounded-xl border border-line bg-card px-6 py-14 text-center">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-line-strong bg-field text-soft">
+        <Inbox size={18} />
       </div>
-    </>
+      <p className="text-sm font-semibold text-ink">หน้านี้กำลังพัฒนา</p>
+      <p className="mt-1 text-xs text-muted">This page is coming in a later step.</p>
+    </div>
   );
 }

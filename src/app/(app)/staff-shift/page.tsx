@@ -3,5 +3,5 @@ import { PagePlaceholder } from "../page-placeholder";
 
 export default async function Page() {
   await requirePage("staffShift");
-  return <PagePlaceholder title="Staff Shift" description="กะทำงานของ Producer และความพร้อมก่อนไลฟ์" />;
+  return <PagePlaceholder />;
 }

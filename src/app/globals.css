@@ -1,33 +1,36 @@
 @import "tailwindcss";
 
-/* Colours taken from the prototype (live-scheduling-system.jsx). */
+/* Dark navy theme matching Ripples Operations (ops.ripplescommerce.com). */
 @theme {
-  --font-sans: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+  --font-sans: var(--font-montserrat), var(--font-noto-thai), system-ui, sans-serif;
 
-  --color-page: #f4f4ef;
-  --color-ink: #1a1a18;
-  --color-muted: #888888;
-  --color-line: #e0e0dc;
-  --color-line-soft: #f0f0eb;
-  --color-subtle: #f7f7f3;
-  --color-primary: #185fa5;
-  --color-accent: #378add;
-
-  --color-sidebar: #1c2333;
-  --color-sidebar-line: #2d3548;
-  --color-sidebar-control: #2a3347;
-  --color-sidebar-control-line: #3d4a63;
-  --color-sidebar-text: #9aa3b4;
-  --color-sidebar-active: #60a5fa;
+  --color-page: #0b1220;
+  --color-panel: #0f1829;
+  --color-card: #121c2f;
+  --color-field: #0d1626;
+  --color-line: #1e2a3f;
+  --color-line-strong: #2a3850;
+  --color-ink: #e6ebf3;
+  --color-soft: #b3bfd1;
+  --color-muted: #6b7a92;
+  --color-primary: #1268ff;
+  --color-primary-hover: #0a58e0;
+  --color-accent: #4c8dff;
+  --color-violet: #8b5cf6;
 
   /* Slot status: background / text / border / dot */
-  --color-waiting-bg: #faeeda;
-  --color-waiting-fg: #854f0b;
-  --color-conflict-bg: #fcebeb;
-  --color-conflict-fg: #791f1f;
-  --color-conflict-alert-bg: #3a1f1f;
-  --color-conflict-alert-fg: #f7c1c1;
-  --color-waiting-alert-fg: #fac775;
+  --color-waiting-bg: #3a2a10;
+  --color-waiting-fg: #f6c26b;
+  --color-conflict-bg: #3a1619;
+  --color-conflict-fg: #f59e9e;
+  --color-confirmed-bg: #14321f;
+  --color-confirmed-fg: #8fd6a4;
+  --color-completed-bg: #102a46;
+  --color-completed-fg: #8cc0f5;
+}
+
+:root {
+  color-scheme: dark;
 }
 
 body {
