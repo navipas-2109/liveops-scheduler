@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { currentLiveDate, fromLiveMinutes, toLiveMinutes } from "./time";
+import {
+  currentLiveDate,
+  fromIsoDate,
+  fromLiveMinutes,
+  isValidIsoDate,
+  toIsoDate,
+  toLiveMinutes,
+} from "./time";
 
 describe("live-day minutes", () => {
   it("counts the small hours as the previous night", () => {
@@ -25,5 +32,13 @@ describe("currentLiveDate", () => {
     expect(currentLiveDate(new Date("2026-08-01T22:59:00Z")).toISOString()).toBe(
       "2026-08-01T00:00:00.000Z",
     );
+  });
+});
+
+describe("ISO dates", () => {
+  it("round-trips and rejects impossible dates", () => {
+    expect(toIsoDate(fromIsoDate("2026-02-28"))).toBe("2026-02-28");
+    expect(isValidIsoDate("2026-02-30")).toBe(false);
+    expect(isValidIsoDate("26/07/20")).toBe(false);
   });
 });

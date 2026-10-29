@@ -43,3 +43,31 @@ export function currentLiveDate(now: Date = new Date()): Date {
     Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()),
   );
 }
+
+// Calendar dates travel through the app as "YYYY-MM-DD" strings and are
+// stored as DATE columns, which the database client reads as UTC midnight.
+export function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function fromIsoDate(iso: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) throw new Error(`Invalid date "${iso}"`);
+  const date = new Date(`${iso}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || toIsoDate(date) !== iso) {
+    throw new Error(`Invalid date "${iso}"`);
+  }
+  return date;
+}
+
+export function isValidIsoDate(iso: string): boolean {
+  try {
+    fromIsoDate(iso);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Earliest start and latest end a slot may have: 07:00 to 02:00 next morning.
+export const LIVE_DAY_START = 7 * 60;
+export const LIVE_DAY_END = 26 * 60;
