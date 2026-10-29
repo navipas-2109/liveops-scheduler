@@ -1,5 +1,5 @@
 // Loads master data and starter accounts. Safe to run more than once:
-// existing rows are updated instead of duplicated.
+// rows that already exist are kept, nothing is duplicated.
 
 import { PrismaClient, type McStatus, type ProducerPosition, type Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -30,10 +30,12 @@ const POSITION: Record<string, ProducerPosition> = {
   "Jr. Producer": "JR_PRODUCER",
 };
 
+// Each table is filled with one batched insert; rows that already exist are
+// left as they are (they may have been edited in the app since).
 async function seedRooms() {
-  for (const [i, r] of ROOMS_RAW.entries()) {
-    const id = "R" + String(i + 1).padStart(2, "0");
-    const data = {
+  await prisma.room.createMany({
+    data: ROOMS_RAW.map((r, i) => ({
+      id: "R" + String(i + 1).padStart(2, "0"),
       building: r.building === "Witree" ? ("WITREE" as const) : ("RIPPLES_STUDIO" as const),
       floor: r.floor,
       roomNo: r.roomNo,
@@ -41,43 +43,33 @@ async function seedRooms() {
       brandAssignment: r.brand,
       shortName: r.roomNo + (r.brand ? ` (${r.brand})` : ""),
       sortOrder: i + 1,
-    };
-    await prisma.room.upsert({ where: { id }, create: { id, ...data }, update: data });
-  }
+    })),
+    skipDuplicates: true,
+  });
 }
 
 async function seedMcs() {
-  for (const m of MCS_RAW) {
-    const status = MC_STATUS[m.status];
-    const data = { fullName: m.fullName, status, ...MC_PAY[status] };
-    // Rates may be edited in the app later, so don't overwrite them on re-seed.
-    await prisma.mc.upsert({
-      where: { nickname: m.nickname },
-      create: { nickname: m.nickname, ...data },
-      update: { fullName: m.fullName, status },
-    });
-  }
+  await prisma.mc.createMany({
+    data: MCS_RAW.map((m) => {
+      const status = MC_STATUS[m.status];
+      return { nickname: m.nickname, fullName: m.fullName, status, ...MC_PAY[status] };
+    }),
+    skipDuplicates: true,
+  });
 }
 
 async function seedProducers() {
-  for (const p of PRODUCERS_RAW) {
-    const position = POSITION[p.position];
-    await prisma.producer.upsert({
-      where: { name: p.name },
-      create: { name: p.name, position },
-      update: { position },
-    });
-  }
+  await prisma.producer.createMany({
+    data: PRODUCERS_RAW.map((p) => ({ name: p.name, position: POSITION[p.position] })),
+    skipDuplicates: true,
+  });
 }
 
 async function seedBrands() {
-  for (const b of BRAND_PLATFORM_RAW) {
-    await prisma.brand.upsert({
-      where: { brandName_platform: { brandName: b.brand, platform: b.platform } },
-      create: { brandName: b.brand, platform: b.platform },
-      update: {},
-    });
-  }
+  await prisma.brand.createMany({
+    data: BRAND_PLATFORM_RAW.map((b) => ({ brandName: b.brand, platform: b.platform })),
+    skipDuplicates: true,
+  });
 }
 
 // One starter account per role, plus the three demo AEs from the prototype,
@@ -99,20 +91,17 @@ async function seedUsers() {
     { email: "ae3@liveops.local", name: "อรรถ", role: "AE", brands: aeBrandNames[2] },
   ];
 
+  const existing = new Set(
+    (await prisma.user.findMany({ where: { email: { in: users.map((u) => u.email) } }, select: { email: true } })).map(
+      (u) => u.email,
+    ),
+  );
+  const allBrands = await prisma.brand.findMany({ select: { id: true, brandName: true } });
   for (const u of users) {
-    const brands = u.brands
-      ? await prisma.brand.findMany({ where: { brandName: { in: u.brands } }, select: { id: true } })
-      : [];
-    await prisma.user.upsert({
-      where: { email: u.email },
-      create: {
-        email: u.email,
-        name: u.name,
-        role: u.role,
-        passwordHash,
-        brands: { connect: brands },
-      },
-      update: { name: u.name, role: u.role, brands: { set: brands } },
+    if (existing.has(u.email)) continue;
+    const brands = allBrands.filter((b) => u.brands?.includes(b.brandName)).map((b) => ({ id: b.id }));
+    await prisma.user.create({
+      data: { email: u.email, name: u.name, role: u.role, passwordHash, brands: { connect: brands } },
     });
   }
 }

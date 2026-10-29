@@ -1,9 +1,11 @@
 // Fills months with sample slots for trying the app out.
 //   npm run db:seed-demo -- 2026-10 2026-11        (skips months that have slots)
 //   npm run db:seed-demo -- 2026-11 --reset        (deletes the month's slots first)
-// Without arguments it uses SEED_DEMO_MONTHS, e.g. "2026-10,2026-11".
+// Without arguments it uses SEED_DEMO_MONTHS, e.g. "2026-10,2026-11", and
+// SEED_DEMO_RESET=1 to reload those months. Trial databases only: a reset
+// deletes every slot in the month, real ones included.
 
-import { PrismaClient, type SlotStatus } from "@prisma/client";
+import { PrismaClient, type Prisma, type SlotStatus } from "@prisma/client";
 import { deriveSlotStatus, findConflicts } from "../src/domain/slot-rules";
 
 const prisma = new PrismaClient();
@@ -44,48 +46,51 @@ async function seedMonth(month: string, reset: boolean) {
     update: {},
   });
 
-  await prisma.slot.deleteMany({ where: { date: { gte: from, lte: to } } });
-
+  // Build the whole month in memory, then write it in one transaction so a
+  // month is either fully loaded or not at all.
   const starts = [8, 10, 12, 14, 16, 18, 20, 22].map((h) => h * 60);
-  let created = 0;
+  const slots: Prisma.SlotCreateManyInput[] = [];
   for (let d = 1; d <= days; d++) {
     const date = new Date(Date.UTC(y, m - 1, d));
-    const rows: { id: string; date: string; startMinute: number; endMinute: number; roomId: string; mcId: string | null }[] = [];
+    const day: (Prisma.SlotCreateManyInput & { id: string; startMinute: number; endMinute: number; roomId: string; mcId: string | null })[] = [];
     for (const room of rooms) {
       for (const start of starts) {
         if (rand() > 0.32) continue;
         const ae = pick(aes);
         const withMc = rand() < 0.6;
-        const slot = await prisma.slot.create({
-          data: {
-            date,
-            startMinute: start,
-            endMinute: start + 120,
-            roomId: room.id,
-            brandId: pick(ae.brands).id,
-            aeId: ae.id,
-            requirement: pick(["Beauty", "Fashion", "Skincare", "Lifestyle", ""]),
-            campaign: pick(["", "", "Flash Sale", "Brand Day"]),
-            mcId: withMc ? pick(mcs).id : null,
-            producerId: rand() < 0.7 ? pick(producers).id : null,
-            admin1Id: rand() < 0.7 ? pick(producers).id : null,
-          },
+        day.push({
+          id: `demo-${month}-${d}-${room.id}-${start}`,
+          date,
+          startMinute: start,
+          endMinute: start + 120,
+          roomId: room.id,
+          brandId: pick(ae.brands).id,
+          aeId: ae.id,
+          requirement: pick(["Beauty", "Fashion", "Skincare", "Lifestyle", ""]),
+          campaign: pick(["", "", "Flash Sale", "Brand Day"]),
+          mcId: withMc ? pick(mcs).id : null,
+          producerId: rand() < 0.7 ? pick(producers).id : null,
+          admin1Id: rand() < 0.7 ? pick(producers).id : null,
         });
-        rows.push({ id: slot.id, date: month, startMinute: start, endMinute: start + 120, roomId: room.id, mcId: slot.mcId });
-        created++;
       }
     }
-    for (const row of rows) {
-      const status = deriveSlotStatus("waiting", row.mcId, findConflicts(row, rows));
-      await prisma.slot.update({ where: { id: row.id }, data: { status: status.toUpperCase() as SlotStatus } });
+    const checks = day.map((s) => ({ ...s, date: month }));
+    for (const s of day) {
+      const status = deriveSlotStatus("waiting", s.mcId, findConflicts({ ...s, date: month }, checks));
+      slots.push({ ...s, status: status.toUpperCase() as SlotStatus });
     }
   }
+  await prisma.$transaction([
+    prisma.slot.deleteMany({ where: { date: { gte: from, lte: to } } }),
+    prisma.slot.createMany({ data: slots }),
+  ]);
+  const created = slots.length;
   console.log(`Demo data: ${created} slots in ${month}, booking window open from ${openFrom.toISOString().slice(0, 10)}`);
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const reset = args.includes("--reset");
+  const reset = args.includes("--reset") || process.env.SEED_DEMO_RESET === "1";
   const fromArgs = args.filter((a) => /^\d{4}-\d{2}$/.test(a));
   const months = fromArgs.length
     ? fromArgs
