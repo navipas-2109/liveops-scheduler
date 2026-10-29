@@ -1,6 +1,7 @@
-// Fills a month with sample slots for trying the app out. For test databases
-// only: it deletes every slot in the month first.
-//   npm run db:seed-demo -- 2026-11
+// Fills months with sample slots for trying the app out.
+//   npm run db:seed-demo -- 2026-10 2026-11        (skips months that have slots)
+//   npm run db:seed-demo -- 2026-11 --reset        (deletes the month's slots first)
+// Without arguments it uses SEED_DEMO_MONTHS, e.g. "2026-10,2026-11".
 
 import { PrismaClient, type SlotStatus } from "@prisma/client";
 import { deriveSlotStatus, findConflicts } from "../src/domain/slot-rules";
@@ -12,11 +13,16 @@ let seed = 42;
 const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 const pick = <T>(items: T[]) => items[Math.floor(rand() * items.length)];
 
-async function main() {
-  if (process.env.NODE_ENV === "production") throw new Error("Refusing to run in production");
-  const month = process.argv[2] ?? new Date().toISOString().slice(0, 7);
+async function seedMonth(month: string, reset: boolean) {
   const [y, m] = month.split("-").map(Number);
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const from = new Date(Date.UTC(y, m - 1, 1));
+  const to = new Date(Date.UTC(y, m - 1, days));
+
+  if (!reset && (await prisma.slot.count({ where: { date: { gte: from, lte: to } } })) > 0) {
+    console.log(`Demo data: ${month} already has slots, skipped`);
+    return;
+  }
 
   const manager = await prisma.user.findFirstOrThrow({ where: { role: "MANAGER" } });
   const aes = await prisma.user.findMany({ where: { role: "AE" }, include: { brands: true } });
@@ -24,7 +30,7 @@ async function main() {
   const mcs = await prisma.mc.findMany({ take: 30 });
   const producers = await prisma.producer.findMany({ take: 20 });
 
-  // Window: open from a week before the month until the 5th of the month.
+  // Window: open from 10 days before the month until the 5th of the month.
   const openFrom = new Date(Date.UTC(y, m - 1, 1 - 10));
   await prisma.bookingWindow.upsert({
     where: { targetMonth: month },
@@ -38,8 +44,6 @@ async function main() {
     update: {},
   });
 
-  const from = new Date(Date.UTC(y, m - 1, 1));
-  const to = new Date(Date.UTC(y, m - 1, days));
   await prisma.slot.deleteMany({ where: { date: { gte: from, lte: to } } });
 
   const starts = [8, 10, 12, 14, 16, 18, 20, 22].map((h) => h * 60);
@@ -77,6 +81,20 @@ async function main() {
     }
   }
   console.log(`Demo data: ${created} slots in ${month}, booking window open from ${openFrom.toISOString().slice(0, 10)}`);
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const reset = args.includes("--reset");
+  const fromArgs = args.filter((a) => /^\d{4}-\d{2}$/.test(a));
+  const months = fromArgs.length
+    ? fromArgs
+    : (process.env.SEED_DEMO_MONTHS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (months.length === 0) {
+    console.log("Demo data: no months given, nothing to do");
+    return;
+  }
+  for (const month of months) await seedMonth(month, reset);
 }
 
 main()
