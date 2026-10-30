@@ -1,0 +1,9 @@
+
+> liveops-scheduler@0.1.0 start
+> next start
+
+▲ Next.js 16.4.3
+- Local:         http://localhost:3000
+- Network:       http://192.0.2.2:3000
+✓ Ready in 154ms
+✓ Running next.config.ts took 42ms
