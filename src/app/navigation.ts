@@ -8,22 +8,42 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  {
-    id: "dashboard",
-    href: "/dashboard",
-    label: "Dashboard",
-    description: "สรุปภาพรวมประจำวัน",
-  },
+  { id: "dashboard", href: "/dashboard", label: "Dashboard", description: "สรุปภาพรวมประจำวัน" },
   {
     id: "schedule",
     href: "/schedule",
     label: "Live Schedule",
-    description: "ตารางไลฟ์ทุกห้อง รายเดือน / สัปดาห์ / วัน",
+    description: "ตารางไลฟ์แยกตามห้อง กรองแบรนด์/Channel ได้",
+  },
+  {
+    id: "inputSlots",
+    href: "/input-slots",
+    label: "Input Live Slot",
+    description: "ลงสล็อตไลฟ์ตาม PD และยืนยัน/ล็อกสล็อตของแต่ละแบรนด์",
+  },
+  {
+    id: "staffShift",
+    href: "/staff-shift",
+    label: "Producer Shift",
+    description: "กะของ Producer และจำนวนสล็อตในแต่ละวัน",
+  },
+  {
+    id: "producerDatabase",
+    href: "/producers",
+    label: "Producer Database",
+    description: "เพิ่ม/ลบ/แก้ไขพนักงาน",
+  },
+  { id: "roomDatabase", href: "/rooms", label: "Room Database", description: "เพิ่ม/ลบ/แก้ไขห้องไลฟ์" },
+  {
+    id: "channelDatabase",
+    href: "/channels",
+    label: "Channel Database",
+    description: "แบรนด์และ Channel (Platform) ที่ไลฟ์",
   },
   {
     id: "brandSlots",
     href: "/brand-slots",
-    label: "Brand Slot",
+    label: "Brand Slot (AE)",
     description: "AE ลงสล็อตแบรนด์ภายในช่วง Booking Window",
   },
   {
@@ -33,22 +53,10 @@ export const NAV_ITEMS: NavItem[] = [
     description: "ลง MC ให้แต่ละสล็อต และตรวจสอบคิวชน",
   },
   {
-    id: "staffShift",
-    href: "/staff-shift",
-    label: "Staff Shift",
-    description: "กะทำงานของ Producer และความพร้อมก่อนไลฟ์",
-  },
-  {
     id: "mcDatabase",
     href: "/mcs",
     label: "MC Database",
     description: "รายชื่อ MC ทั้งหมด พร้อมเรทและประวัติไลฟ์",
-  },
-  {
-    id: "producerDatabase",
-    href: "/producers",
-    label: "Producer Database",
-    description: "รายชื่อ Producer ทั้งหมด พร้อมประวัติกะ",
   },
   {
     id: "payments",

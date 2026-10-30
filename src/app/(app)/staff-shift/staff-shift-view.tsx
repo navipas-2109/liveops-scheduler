@@ -1,105 +1,90 @@
 "use client";
 
 import { useState } from "react";
-import type { ShiftItem, SlotListItem } from "@/application/ports";
+import type { ShiftItem } from "@/application/ports";
 import type { StaffShiftPageData } from "@/application/shifts/staff-shift";
 import { SHIFT_CODES } from "@/domain/shift-sheet";
-import { isStaffReady } from "@/domain/slot-rules";
 import { fromLiveMinutes } from "@/domain/time";
-import { dayLabel, timeRange } from "../../format";
-import { StaffRow } from "./staff-row";
+import { dayLabel } from "../../format";
+import { SquadSelect } from "./squad-select";
 import { StaffToolbar } from "./staff-toolbar";
 
 // Order the shift groups appear in, morning to evening, office last.
 const GROUP_ORDER = ["2", "4", "3", "OF"];
 
+// One day: who is on which shift and how many lives each person has.
+// Staffing lives happens on Input Live Slot.
 export function StaffShiftView({ data }: { data: StaffShiftPageData }) {
-  const [showAll, setShowAll] = useState(false);
+  const [squad, setSquad] = useState("");
+  const inSquad = (x: ShiftItem) => !squad || x.squad === squad;
 
-  const s = data.summary;
-  const notReady = data.slots.filter((x) => !isStaffReady(x) && x.status !== "completed");
-  const listed = showAll ? data.slots : notReady;
-  const working = data.shifts.filter((x) => x.kind === "live" || x.kind === "office");
-  const away = data.shifts.filter((x) => x.kind === "off" || x.kind === "leave");
+  const slotCount = (producerId: string) =>
+    data.slots.filter((x) => [x.producerId, x.admin1Id, x.admin2Id].includes(producerId)).length;
+  const working = data.shifts.filter((x) => (x.kind === "live" || x.kind === "office") && inSquad(x));
+  const away = data.shifts.filter((x) => (x.kind === "off" || x.kind === "leave") && inSquad(x));
   const groups = GROUP_ORDER.map((code) => ({ code, people: working.filter((x) => x.code === code) })).filter(
     (g) => g.people.length > 0,
   );
-  // Shifts that came from somewhere other than the sheet codes (e.g. demo data).
   const other = working.filter((x) => !GROUP_ORDER.includes(x.code));
   if (other.length) groups.push({ code: "", people: other });
+  const squads = [...new Set(data.shifts.map((x) => x.squad).filter(Boolean))].sort();
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       <StaffToolbar view="day" date={data.date} title={dayLabel(data.date)} canEdit={data.canEdit} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Card label="PD เข้ากะไลฟ์" value={s.onShift} />
-        <Card label="เวลาออฟฟิศ (OF)" value={s.office} />
-        <Card label="หยุด / ลา" value={s.away} />
-        <Card label="ไลฟ์วันนี้" value={s.lives} />
-        <Card
-          label="ทีมงานพร้อม"
-          value={`${s.ready}/${s.lives}`}
-          tone={s.ready === s.lives ? "text-confirmed-fg" : "text-waiting-fg"}
-        />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card label="PD เข้ากะไลฟ์" value={working.filter((x) => x.kind === "live").length} />
+        <Card label="เวลาออฟฟิศ (OF)" value={working.filter((x) => x.kind === "office").length} />
+        <Card label="หยุด / ลา" value={away.length} />
+        <Card label="สล็อตวันนี้ (ทั้งหมด)" value={data.slots.length} />
       </div>
 
-      <section className="rounded-xl border border-line bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
-          <div>
-            <h2 className="text-sm font-semibold">ลงทีมงานไลฟ์</h2>
-            <p className="text-[11px] text-muted">
-              ไลฟ์จะ “พร้อม” เมื่อมี Producer และ Admin 1 — รายชื่อเรียง PD ที่เข้ากะครอบเวลาไลฟ์ไว้ก่อน
-            </p>
-          </div>
-          <div className="flex gap-1">
-            {[
-              [false, `ยังไม่พร้อม (${notReady.length})`],
-              [true, `ทั้งหมด (${data.slots.length})`],
-            ].map(([all, label]) => (
-              <button
-                key={String(all)}
-                type="button"
-                onClick={() => setShowAll(all as boolean)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                  showAll === all ? "bg-primary/15 text-accent" : "text-muted hover:bg-field hover:text-soft"
-                }`}
-              >
-                {label as string}
-              </button>
-            ))}
-          </div>
-        </div>
-        {listed.length === 0 ? (
-          <p className="px-4 py-8 text-center text-xs text-muted">
-            {data.slots.length === 0 ? "วันนี้ไม่มีไลฟ์" : "ทุกไลฟ์มีทีมงานครบแล้ว 🎉"}
-          </p>
-        ) : (
-          <ul className="divide-y divide-line">
-            {listed.map((slot) => (
-              <StaffRow
-                key={`${slot.id}-${slot.producerId}-${slot.admin1Id}-${slot.admin2Id}`}
-                slot={slot}
-                shifts={data.shifts}
-                producers={data.producers}
-                canEdit={data.canEdit && slot.status !== "completed"}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-
       <section className="rounded-xl border border-line bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold">PD ที่เข้างานวันนี้</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">กะของ Producer</h2>
+          <SquadSelect squads={squads} value={squad} onChange={setSquad} />
+        </div>
         {working.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line py-6 text-center text-xs text-muted">
-            ยังไม่มีกะของวันนี้{data.canEdit && " — กด “นำเข้ากะจาก Google Sheet” ด้านบน"}
+            {data.shifts.length === 0 ? "ยังไม่มีกะของวันนี้ — กด “นำเข้ากะจาก Google Sheet” ด้านบน" : "ไม่มี PD ใน Squad นี้"}
           </p>
         ) : (
           <div className="grid gap-4">
-            {groups.map((g) => (
-              <ShiftGroup key={g.code || "other"} code={g.code} people={g.people} slots={data.slots} />
-            ))}
+            {groups.map((g) => {
+              const def = SHIFT_CODES[g.code];
+              return (
+                <div key={g.code || "other"}>
+                  <p className="mb-2 text-xs font-semibold">
+                    {def ? `${g.code} · ${def.label}` : "กะอื่น ๆ"}{" "}
+                    <span className="font-normal text-muted">
+                      {def?.start && `${def.start}–${def.end} · `}
+                      {g.people.length} คน
+                    </span>
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {g.people.map((p) => {
+                      const n = slotCount(p.producerId);
+                      return (
+                        <div key={p.producerId} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-field px-3 py-2 text-xs">
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold">{p.producerName}</span>
+                            <span className="block truncate text-[10px] text-muted">
+                              {p.position}
+                              {p.squad && ` · ${p.squad}`}
+                              {!def && p.shiftStart !== null && p.shiftEnd !== null && ` · ${fromLiveMinutes(p.shiftStart)}–${fromLiveMinutes(p.shiftEnd)}`}
+                            </span>
+                          </span>
+                          <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${n ? "bg-primary/15 text-accent" : "bg-card text-muted"}`}>
+                            {n} สล็อต
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
         {away.length > 0 && (
@@ -115,76 +100,15 @@ export function StaffShiftView({ data }: { data: StaffShiftPageData }) {
           </div>
         )}
       </section>
-
     </div>
   );
 }
 
-function Card({ label, value, tone = "text-ink" }: { label: string; value: number | string; tone?: string }) {
+function Card({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-xl border border-line bg-card px-4 py-3">
       <p className="text-[11px] text-muted">{label}</p>
-      <p className={`mt-1 text-lg font-semibold tabular-nums ${tone}`}>{value}</p>
+      <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
-
-function ShiftGroup({ code, people, slots }: { code: string; people: ShiftItem[]; slots: SlotListItem[] }) {
-  const def = SHIFT_CODES[code];
-  const first = people[0];
-  const hours =
-    first.shiftStart !== null && first.shiftEnd !== null
-      ? `${fromLiveMinutes(first.shiftStart)}–${fromLiveMinutes(first.shiftEnd)}`
-      : "";
-  return (
-    <div>
-      <p className="mb-2 text-xs font-semibold">
-        {def ? `${code} · ${def.label}` : "กะอื่น ๆ"} <span className="font-normal text-muted">{def && hours} · {people.length} คน</span>
-      </p>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {people.map((p) => {
-          const mine = slots.filter((x) => [x.producerId, x.admin1Id, x.admin2Id].includes(p.producerId));
-          return (
-            <div key={p.producerId} className="rounded-lg border border-line bg-field px-3 py-2.5 text-xs">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{p.producerName}</p>
-                  <p className="truncate text-[11px] text-muted">
-                    {p.position}
-                    {p.squad && ` · ${p.squad}`}
-                  </p>
-                </div>
-                <span className="shrink-0 text-[10px] text-muted">
-                  {!def && p.shiftStart !== null && p.shiftEnd !== null
-                    ? `${fromLiveMinutes(p.shiftStart)}–${fromLiveMinutes(p.shiftEnd)} · `
-                    : ""}
-                  {mine.length} ไลฟ์
-                </span>
-              </div>
-              {mine.length > 0 && (
-                <ul className="mt-2 grid gap-1">
-                  {mine.map((x) => (
-                    <li key={x.id} className="flex items-center justify-between gap-2">
-                      <span className="truncate text-[11px]">
-                        {timeRange(x.startMinute, x.endMinute)} · {x.brandName}{" "}
-                        <span className="text-muted">
-                          ({x.producerId === p.producerId ? "Producer" : "Admin"})
-                        </span>
-                      </span>
-                      {isStaffReady(x) ? (
-                        <span className="shrink-0 rounded bg-confirmed-bg px-1.5 text-[10px] text-confirmed-fg">พร้อม</span>
-                      ) : (
-                        <span className="shrink-0 rounded bg-waiting-bg px-1.5 text-[10px] text-waiting-fg">ไม่พร้อม</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-

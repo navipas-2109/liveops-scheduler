@@ -8,8 +8,10 @@ import type {
   ShiftRepository,
   SlotListItem,
   SlotRepository,
+  SlotLockRepository,
   SlotStaff,
 } from "../ports";
+import { lockedFor } from "../slots/save-slot";
 
 export interface StaffShiftPageData {
   date: string;
@@ -53,17 +55,19 @@ export async function getStaffShiftPage(
 // Operation puts the Producer and Live Admins on a live. A live is "ready"
 // once it has a Producer and a first Admin.
 export async function assignStaff(
-  deps: { slots: SlotRepository; producers: ProducerRepository },
+  deps: { slots: SlotRepository; producers: ProducerRepository; locks: SlotLockRepository },
   user: SessionUser,
   slotId: string,
   staff: SlotStaff,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (user.role !== "OPERATION" && user.role !== "MANAGER") {
-    return { ok: false, error: "เฉพาะ Operation และ Manager เท่านั้นที่ลงทีมงานได้" };
+  if (!["OPERATION", "PLANNER", "MANAGER"].includes(user.role)) {
+    return { ok: false, error: "คุณไม่มีสิทธิ์ลงทีมงาน" };
   }
   const slot = await deps.slots.findById(slotId);
   if (!slot) return { ok: false, error: "ไม่พบสล็อตนี้" };
   if (slot.status === "completed") return { ok: false, error: "ไลฟ์นี้จบและบันทึกแล้ว" };
+  const locked = await lockedFor(deps.locks, user, [slot]);
+  if (locked) return { ok: false, error: locked };
 
   const known = new Set((await deps.producers.listAll()).map((p) => p.id));
   const chosen = [staff.producerId, staff.admin1Id, staff.admin2Id].filter((id): id is string => !!id);

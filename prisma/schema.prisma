@@ -92,6 +92,7 @@ model User {
   plannerSlots     Slot[]          @relation("SlotPlanner")
   bookingWindows   BookingWindow[]
   recordedPayments Payment[]       @relation("PaymentRecordedBy")
+  slotLocks        SlotLock[]
   approvedPayments Payment[]       @relation("PaymentApprovedBy")
 
   @@map("users")
@@ -147,6 +148,7 @@ model Brand {
 
   aes   User[] @relation("UserBrands")
   slots Slot[]
+  locks SlotLock[]
 
   @@unique([brandName, platform])
   @@map("brands")
@@ -237,4 +239,19 @@ model Shift {
   @@unique([producerId, date])
   @@index([date])
   @@map("shifts")
+}
+
+// A brand's lives for a month, confirmed and locked: after this only
+// Planners (and Managers) can change them.
+model SlotLock {
+  id         String   @id @default(cuid())
+  brandId    String   @map("brand_id")
+  brand      Brand    @relation(fields: [brandId], references: [id])
+  month      String // "2026-11"
+  lockedById String   @map("locked_by")
+  lockedBy   User     @relation(fields: [lockedById], references: [id])
+  lockedAt   DateTime @default(now()) @map("locked_at")
+
+  @@unique([brandId, month])
+  @@map("slot_locks")
 }

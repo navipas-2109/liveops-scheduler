@@ -24,3 +24,11 @@ export async function saveProducerAction(
   refresh();
   return { ok: true as const };
 }
+
+export async function deleteProducerAction(id: string) {
+  const user = await getSessionUser();
+  if (!user) return { ok: false as const, error: "กรุณาเข้าสู่ระบบใหม่" };
+  const result = await services.deleteProducer(user, String(id));
+  if (result.ok) refresh();
+  return result;
+}

@@ -14,8 +14,10 @@ interface Props {
   blockDetail: (slot: SlotListItem) => string;
   selectedId: string | null;
   onSelect: (slot: SlotListItem) => void;
-  onAdd: ((roomId: string, minute: number) => void) | null;
+  // Called with the row clicked; rows with a room or a PD can add slots.
+  onAdd: ((row: TimelineRow, minute: number) => void) | null;
   emptyText: string;
+  isLocked?: (slot: SlotListItem) => boolean;
 }
 
 const LANE_HEIGHT = 34;
@@ -24,7 +26,7 @@ const LANE_HEIGHT = 34;
 // 07:00–02:00 across. Slots span their real length; a row's shift, if any,
 // is shaded behind its slots.
 export function DayTimeline(props: Props) {
-  const { date, rows, rowLabel, slotCount, colors, blockDetail, selectedId, onSelect, onAdd, emptyText } = props;
+  const { date, rows, rowLabel, slotCount, colors, blockDetail, selectedId, onSelect, onAdd, emptyText, isLocked } = props;
   const gridColumns = { gridTemplateColumns: `repeat(${HOURS.length}, minmax(0, 1fr))` };
 
   return (
@@ -54,7 +56,7 @@ export function DayTimeline(props: Props) {
             {rows.map((row) => {
               const lanes = assignLanes(row.slots);
               const height = Math.max(lanes.length, 1) * LANE_HEIGHT + 6;
-              const addRoom = onAdd && row.roomId;
+              const canAdd = !!onAdd && (!!row.roomId || row.producerId !== undefined);
               return (
                 <div key={row.id} className="flex border-b border-line/60">
                   <div
@@ -77,11 +79,11 @@ export function DayTimeline(props: Props) {
                     )}
                     <div className="absolute inset-0 grid" style={gridColumns}>
                       {HOURS.map((h) =>
-                        addRoom ? (
+                        canAdd ? (
                           <button
                             key={h}
                             type="button"
-                            onClick={() => onAdd(row.roomId!, h)}
+                            onClick={() => onAdd!(row, h)}
                             aria-label={`เพิ่มสล็อต ${row.title} ${fromLiveMinutes(h)}`}
                             className="group flex items-center justify-center border-l border-line/40 hover:bg-primary/10"
                           >
@@ -114,6 +116,7 @@ export function DayTimeline(props: Props) {
                             }}
                           >
                             <span className="block truncate font-semibold">
+                              {isLocked?.(s) && "🔒 "}
                               {offShift && "⚠ "}
                               {s.brandName}
                             </span>

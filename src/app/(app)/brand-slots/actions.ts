@@ -15,6 +15,7 @@ export interface SlotFormValues {
   brandId: string;
   campaign: string;
   requirement: string;
+  producerId?: string | null;
 }
 
 const SIGNED_OUT: ActionResult = { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
@@ -29,6 +30,7 @@ function clean(v: SlotFormValues) {
     brandId: String(v.brandId ?? ""),
     campaign: String(v.campaign ?? ""),
     requirement: String(v.requirement ?? ""),
+    ...(v.producerId !== undefined ? { producerId: v.producerId ? String(v.producerId) : null } : {}),
   };
 }
 

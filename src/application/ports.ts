@@ -31,6 +31,23 @@ export interface Brand {
 export interface BrandRepository {
   listAll(): Promise<Brand[]>;
   listForAe(userId: string): Promise<Brand[]>;
+  create(brandName: string, platform: string): Promise<Brand>;
+  remove(id: string): Promise<void>;
+  slotCount(id: string): Promise<number>;
+}
+
+export interface SlotLock {
+  brandId: string;
+  month: string;
+  lockedByName: string;
+  lockedAt: string; // ISO timestamp
+}
+
+export interface SlotLockRepository {
+  listForMonth(month: string): Promise<SlotLock[]>;
+  isLocked(brandId: string, month: string): Promise<boolean>;
+  lock(brandId: string, month: string, userId: string): Promise<void>;
+  unlock(brandId: string, month: string): Promise<void>;
 }
 
 export interface Room {
@@ -39,6 +56,16 @@ export interface Room {
   building: string;
   floor: number;
   size: string;
+  roomNo: string;
+  brandAssignment: string;
+}
+
+export interface RoomInput {
+  building: string; // "Ripples Studio" | "Witree"
+  floor: number;
+  roomNo: string;
+  size: string; // "Large" | "Small"
+  brandAssignment: string;
 }
 
 export interface Mc {
@@ -57,6 +84,10 @@ export interface McRepository {
 
 export interface RoomRepository {
   listAll(): Promise<Room[]>;
+  create(input: RoomInput): Promise<Room>;
+  update(id: string, input: RoomInput): Promise<Room>;
+  remove(id: string): Promise<void>;
+  slotCount(id: string): Promise<number>;
 }
 
 export interface BookingWindowRepository {
@@ -97,7 +128,7 @@ export interface SlotListItem extends SlotRecord {
 export type NewSlot = Pick<
   SlotRecord,
   "date" | "startMinute" | "endMinute" | "roomId" | "brandId" | "campaign" | "requirement" | "aeId"
->;
+> & { producerId?: string | null };
 
 export type SlotChanges = Omit<NewSlot, "aeId">;
 
@@ -107,6 +138,7 @@ export interface SlotListFilter {
   aeId?: string;
   roomId?: string;
   brandName?: string;
+  platform?: string;
   status?: SlotStatus;
   limit?: number;
 }
@@ -114,6 +146,7 @@ export interface SlotListFilter {
 export type StatusCounts = Partial<Record<SlotStatus, number>>;
 
 export interface BrandStatusCounts {
+  brandId: string;
   brandName: string;
   platform: string;
   counts: StatusCounts;
@@ -200,6 +233,9 @@ export interface ProducerRepository {
   listAll(): Promise<Producer[]>;
   create(input: ProducerInput): Promise<Producer>;
   update(id: string, input: ProducerInput): Promise<Producer>;
+  // Deletes the person and their shifts.
+  remove(id: string): Promise<void>;
+  slotCount(id: string): Promise<number>; // lives they're Producer or Admin on
 }
 
 export type NotifyChannel = "planner" | "operation" | "finance";

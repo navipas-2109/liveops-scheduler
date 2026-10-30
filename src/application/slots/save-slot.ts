@@ -1,5 +1,6 @@
 import type { SessionUser } from "../auth/login";
-import { checkBookingAllowed } from "@/domain/booking";
+import { checkBookingAllowed, monthOf } from "@/domain/booking";
+import { canChangeLocked, LOCKED_MESSAGE } from "@/domain/slot-lock";
 import { rangesOverlap, fromLiveMinutes, isValidIsoDate, LIVE_DAY_END, LIVE_DAY_START } from "@/domain/time";
 import type {
   BookingWindowRepository,
@@ -8,7 +9,9 @@ import type {
   Clock,
   Notifier,
   Room,
+  ProducerRepository,
   RoomRepository,
+  SlotLockRepository,
   SlotRecord,
   SlotRepository,
 } from "../ports";
@@ -22,6 +25,8 @@ export interface SlotInput {
   brandId: string;
   campaign: string;
   requirement: string;
+  // Set from Input Live Slot (one row per PD); left out, the PD is unchanged.
+  producerId?: string | null;
 }
 
 export interface SaveSlotDeps {
@@ -29,8 +34,25 @@ export interface SaveSlotDeps {
   brands: BrandRepository;
   rooms: RoomRepository;
   bookingWindows: BookingWindowRepository;
+  locks: SlotLockRepository;
+  producers: ProducerRepository;
   notifier: Notifier;
   clock: Clock;
+}
+
+const CAN_BOOK = ["AE", "MANAGER", "PLANNER", "OPERATION"];
+
+// Locked months for this brand that the user isn't allowed to change.
+export async function lockedFor(
+  locks: SlotLockRepository,
+  user: SessionUser,
+  changes: { brandId: string; date: string }[],
+): Promise<string | null> {
+  if (canChangeLocked(user.role)) return null;
+  for (const c of changes) {
+    if (await locks.isLocked(c.brandId, monthOf(c.date))) return LOCKED_MESSAGE;
+  }
+  return null;
 }
 
 export type SaveSlotResult = { ok: true; slot: SlotRecord } | { ok: false; error: string };
@@ -50,21 +72,20 @@ function validateShape(input: SlotInput): string | null {
 }
 
 async function allowedBrands(deps: SaveSlotDeps, user: SessionUser): Promise<Brand[]> {
-  return user.role === "MANAGER" ? deps.brands.listAll() : deps.brands.listForAe(user.userId);
+  return user.role === "AE" ? deps.brands.listForAe(user.userId) : deps.brands.listAll();
 }
 
 // Creates a slot (no id) or edits one. AEs may only use their own brands,
 // only touch their own slots, and only inside an open Booking Window.
-// A slot can't be booked into a room that is already taken at that time.
+// A slot can't be booked into a room that is already taken at that time, and
+// a locked brand-month can only be changed by a Planner.
 export async function saveSlot(
   deps: SaveSlotDeps,
   user: SessionUser,
   input: SlotInput,
   slotId?: string,
 ): Promise<SaveSlotResult> {
-  if (user.role !== "AE" && user.role !== "MANAGER") {
-    return { ok: false, error: "เฉพาะ AE และ Manager เท่านั้นที่ลงสล็อตได้" };
-  }
+  if (!CAN_BOOK.includes(user.role)) return { ok: false, error: "คุณไม่มีสิทธิ์ลงสล็อต" };
   const shapeError = validateShape(input);
   if (shapeError) return { ok: false, error: shapeError };
 
@@ -92,6 +113,14 @@ export async function saveSlot(
   }
   const check = checkBookingAllowed(user.role, windows, input.date, today);
   if (!check.ok) return { ok: false, error: check.reason };
+  const locked = await lockedFor(deps.locks, user, [
+    { brandId: input.brandId, date: input.date },
+    ...(existing ? [{ brandId: existing.brandId, date: existing.date }] : []),
+  ]);
+  if (locked) return { ok: false, error: locked };
+  if (input.producerId && !(await deps.producers.listAll()).some((p) => p.id === input.producerId)) {
+    return { ok: false, error: "ไม่พบ Producer ที่เลือก" };
+  }
 
   const dates = existing && existing.date !== input.date ? [input.date, existing.date] : [input.date];
   const result = await deps.slots.withDatesLocked(dates, async (session) => {
@@ -114,6 +143,7 @@ export async function saveSlot(
       brandId: input.brandId,
       campaign: input.campaign.trim(),
       requirement: input.requirement.trim(),
+      ...(input.producerId !== undefined ? { producerId: input.producerId } : {}),
     };
     const saved = existing
       ? await session.update(existing.id, fields)

@@ -1,7 +1,10 @@
 "use client";
 
 import {
+  Building2,
   CalendarDays,
+  CalendarPlus,
+  Radio,
   CreditCard,
   LayoutDashboard,
   LogOut,
@@ -35,6 +38,9 @@ const ICONS: Record<PageId, LucideIcon> = {
   mcDatabase: UserRound,
   producerDatabase: UsersRound,
   payments: CreditCard,
+  inputSlots: CalendarPlus,
+  roomDatabase: Building2,
+  channelDatabase: Radio,
 };
 
 interface Props {

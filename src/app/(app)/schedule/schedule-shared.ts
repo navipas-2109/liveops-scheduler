@@ -52,7 +52,9 @@ export interface TimelineRow {
   accent: string;
   shift: { start: number; end: number } | null;
   slots: SlotListItem[];
-  roomId: string | null; // set when empty cells in this row can add a slot
+  roomId: string | null; // room for slots added from this row
+  producerId?: string | null; // PD for slots added from this row
+  squad?: string;
   warn?: boolean;
 }
 
@@ -82,6 +84,8 @@ export function pdRows(slots: SlotListItem[], shifts: ShiftItem[]): TimelineRow[
       shift: { start: sh.shiftStart, end: sh.shiftEnd },
       slots: [],
       roomId: null,
+      producerId: sh.producerId,
+      squad: sh.squad,
     });
   }
   for (const s of slots) {
@@ -95,6 +99,7 @@ export function pdRows(slots: SlotListItem[], shifts: ShiftItem[]): TimelineRow[
         shift: null,
         slots: [],
         roomId: null,
+        producerId: s.producerId,
         warn: true,
       });
     }

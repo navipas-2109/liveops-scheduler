@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { StaffGridData } from "@/application/shifts/staff-shift";
 import { SHIFT_CODES } from "@/domain/shift-sheet";
 import { dayLabel, monthLabel, shortDateLabel } from "../../format";
+import { SquadSelect } from "./squad-select";
 import { StaffToolbar } from "./staff-toolbar";
 
 // Same colour families as the .xlsx template, dark-theme versions.
@@ -25,6 +26,7 @@ const POSITIONS = ["Producer Team Lead", "Senior Producer", "Producer", "Jr. Pro
 // Shift Planning sheet, with how many lives each person staffs that day.
 export function StaffGridView({ data }: { data: StaffGridData }) {
   const [query, setQuery] = useState("");
+  const [squad, setSquad] = useState("");
   const [position, setPosition] = useState<string | null>(null);
   const week = data.view === "week";
 
@@ -32,6 +34,7 @@ export function StaffGridView({ data }: { data: StaffGridData }) {
   const people = data.people.filter(
     (p) =>
       (!position || p.position === position) &&
+      (!squad || p.squad === squad) &&
       (!q || p.name.toLowerCase().includes(q) || p.squad.toLowerCase().includes(q)),
   );
   const title = week ? `${shortDateLabel(data.from)} – ${shortDateLabel(data.to)}` : monthLabel(data.from.slice(0, 7));
@@ -55,6 +58,11 @@ export function StaffGridView({ data }: { data: StaffGridData }) {
                 className="w-40 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
               />
             </label>
+            <SquadSelect
+              squads={[...new Set(data.people.map((p) => p.squad).filter(Boolean))].sort()}
+              value={squad}
+              onChange={setSquad}
+            />
             <div className="flex flex-wrap gap-1">
               {[null, ...POSITIONS].map((p) => (
                 <button

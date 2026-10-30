@@ -109,7 +109,10 @@ export const prismaSlotRepository: SlotRepository = {
         aeId: filter.aeId,
         roomId: filter.roomId,
         status: filter.status ? toDbStatus(filter.status) : undefined,
-        brand: filter.brandName ? { brandName: filter.brandName } : undefined,
+        brand:
+          filter.brandName || filter.platform
+            ? { brandName: filter.brandName, platform: filter.platform }
+            : undefined,
       },
       select: listSelect,
       orderBy: [{ date: "asc" }, { startMinute: "asc" }, { room: { sortOrder: "asc" } }],
@@ -160,7 +163,7 @@ export const prismaSlotRepository: SlotRepository = {
         for (const g of groups.filter((g) => g.brandId === b.id)) {
           counts[fromDbStatus(g.status)] = g._count;
         }
-        return { brandName: b.brandName, platform: b.platform, counts };
+        return { brandId: b.id, brandName: b.brandName, platform: b.platform, counts };
       })
       .sort((a, b) => `${a.brandName}${a.platform}`.localeCompare(`${b.brandName}${b.platform}`));
   },

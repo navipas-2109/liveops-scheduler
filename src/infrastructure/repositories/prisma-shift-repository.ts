@@ -83,4 +83,13 @@ export const prismaProducerRepository: ProducerRepository = {
     });
     return toProducer(row);
   },
+  async remove(id) {
+    await prisma.$transaction([
+      prisma.shift.deleteMany({ where: { producerId: id } }),
+      prisma.producer.delete({ where: { id } }),
+    ]);
+  },
+  slotCount(id) {
+    return prisma.slot.count({ where: { OR: [{ producerId: id }, { admin1Id: id }, { admin2Id: id }] } });
+  },
 };

@@ -41,7 +41,9 @@ export interface SchedulePageData {
   summaries: Record<string, DaySummary>;
   slots: SlotListItem[];
   windows: BookingWindow[];
-  brands: Brand[]; // brands this user may book (empty if they can't book)
+  brands: Brand[]; // every brand/channel, for the filters
+  brandName: string | null;
+  platform: string | null;
 }
 
 const BRANDS_PER_DAY = 3;
@@ -77,19 +79,31 @@ export async function getSchedulePage(
     clock: Clock;
   },
   user: SessionUser,
-  query: { view: ScheduleView; date: string | null; roomId: string | null; grouping: DayGrouping },
+  query: {
+    view: ScheduleView;
+    date: string | null;
+    roomId: string | null;
+    grouping: DayGrouping;
+    brandName?: string | null;
+    platform?: string | null;
+  },
 ): Promise<SchedulePageData> {
   const today = deps.clock.today();
   const date = query.date ?? today;
   const { from, to } = rangeFor(query.view, date);
-  const canBook = user.role === "AE" || user.role === "MANAGER";
 
   const byPd = query.view === "day" && query.grouping === "pd";
   const [rooms, windows, brands, slots, shifts] = await Promise.all([
     deps.rooms.listAll(),
     deps.bookingWindows.listAll(),
-    !canBook ? Promise.resolve([]) : user.role === "AE" ? deps.brands.listForAe(user.userId) : deps.brands.listAll(),
-    deps.slots.list({ from, to, roomId: query.roomId ?? undefined }),
+    deps.brands.listAll(),
+    deps.slots.list({
+      from,
+      to,
+      roomId: query.roomId ?? undefined,
+      brandName: query.brandName ?? undefined,
+      platform: query.platform ?? undefined,
+    }),
     byPd ? deps.shifts.listInRange(from, to) : Promise.resolve([]),
   ]);
   const grouping: DayGrouping = byPd ? "pd" : "room";
@@ -110,6 +124,8 @@ export async function getSchedulePage(
       slots,
       windows,
       brands,
+      brandName: query.brandName ?? null,
+      platform: query.platform ?? null,
     };
   }
 
@@ -135,5 +151,7 @@ export async function getSchedulePage(
     slots: [],
     windows,
     brands,
+    brandName: query.brandName ?? null,
+    platform: query.platform ?? null,
   };
 }

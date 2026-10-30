@@ -24,9 +24,10 @@ describe("checkBookingAllowed", () => {
     expect(checkBookingAllowed("AE", [aug], "2026-09-02", "2026-07-10").ok).toBe(false);
   });
 
-  it("never limits a Manager and never allows a Planner", () => {
+  it("only limits AEs", () => {
     expect(checkBookingAllowed("MANAGER", [], "2026-12-01", "2026-01-01").ok).toBe(true);
-    expect(checkBookingAllowed("PLANNER", [aug], "2026-08-20", "2026-07-10").ok).toBe(false);
+    expect(checkBookingAllowed("PLANNER", [], "2026-12-01", "2026-01-01").ok).toBe(true);
+    expect(checkBookingAllowed("OPERATION", [], "2026-12-01", "2026-01-01").ok).toBe(true);
   });
 });
 

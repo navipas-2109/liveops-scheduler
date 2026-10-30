@@ -19,7 +19,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Sea
     view: viewParam && VIEWS.includes(viewParam) ? viewParam : "day",
     date: dateParam && isValidIsoDate(dateParam) ? dateParam : null,
     roomId: one(params.room),
-    grouping: one(params.by) === "pd" ? "pd" : "room",
+    grouping: "room",
+    brandName: one(params.brand),
+    platform: one(params.channel),
   });
-  return <ScheduleScreen data={data} role={user.role} userId={user.userId} />;
+  return <ScheduleScreen data={data} role={user.role} />;
 }

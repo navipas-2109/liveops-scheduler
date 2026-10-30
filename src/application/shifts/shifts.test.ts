@@ -29,6 +29,10 @@ function fakes() {
       Object.assign(producers.find((p) => p.id === id)!, input);
       return { ...producers.find((p) => p.id === id)! };
     },
+    remove: async (id) => {
+      producers.splice(producers.findIndex((p) => p.id === id), 1);
+    },
+    slotCount: async (id) => (id === "p2" ? 3 : 0),
   };
   const shiftRepo: ShiftRepository = {
     listInRange: async () => [],
@@ -142,6 +146,8 @@ describe("getStaffGrid", () => {
           ],
           create: async () => ({}) as never,
           update: async () => ({}) as never,
+          remove: async () => {},
+          slotCount: async () => 0,
         },
         clock: { today: () => "2026-11-02", nowMinute: () => 600 },
       },

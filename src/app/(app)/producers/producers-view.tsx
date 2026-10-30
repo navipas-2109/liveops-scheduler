@@ -1,9 +1,9 @@
 "use client";
 
-import { Pencil, Search, UserPlus, X } from "lucide-react";
+import { Pencil, Search, Trash2, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Producer } from "@/application/ports";
-import { saveProducerAction } from "./actions";
+import { deleteProducerAction, saveProducerAction } from "./actions";
 
 const POSITIONS = ["Producer Team Lead", "Senior Producer", "Producer", "Jr. Producer"];
 
@@ -151,6 +151,16 @@ function ProducerDrawer({ initial, onClose }: { initial: Draft; onClose: () => v
     else setError(r.error);
   }
 
+  async function remove() {
+    if (!initial.id || !window.confirm(`ลบ ${initial.name} ออกจากระบบ? (กะทั้งหมดของคนนี้จะถูกลบด้วย)`)) return;
+    setPending(true);
+    setError(null);
+    const r = await deleteProducerAction(initial.id);
+    setPending(false);
+    if (r.ok) onClose();
+    else setError(r.error);
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <button type="button" aria-label="ปิด" onClick={onClose} className="absolute inset-0 bg-black/50" />
@@ -196,8 +206,18 @@ function ProducerDrawer({ initial, onClose }: { initial: Draft; onClose: () => v
           </label>
           {error && <p role="alert" className="rounded-lg bg-conflict-bg px-3 py-2 text-xs text-conflict-fg">{error}</p>}
         </div>
-        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-xs font-medium text-soft hover:text-ink">
+        <div className="flex items-center gap-2 border-t border-line px-5 py-4">
+          {initial.id && (
+            <button
+              type="button"
+              onClick={remove}
+              disabled={pending}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-conflict-fg hover:bg-conflict-bg"
+            >
+              <Trash2 size={14} /> ลบพนักงาน
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="ml-auto rounded-lg px-4 py-2 text-xs font-medium text-soft hover:text-ink">
             ยกเลิก
           </button>
           <button

@@ -1,5 +1,5 @@
 // Booking Window rules: AEs may only add or change slots for a target month
-// while that month's window is open. Managers are not limited by windows.
+// while that month's window is open. Other roles are not limited by windows.
 
 import type { Role } from "./roles";
 
@@ -27,8 +27,7 @@ export function checkBookingAllowed(
   slotDate: string,
   today: string,
 ): BookingCheck {
-  if (role === "MANAGER") return { ok: true };
-  if (role !== "AE") return { ok: false, reason: "เฉพาะ AE และ Manager เท่านั้นที่ลงสล็อตได้" };
+  if (role !== "AE") return { ok: true };
 
   const window = windows.find((w) => w.targetMonth === monthOf(slotDate));
   if (!window) {

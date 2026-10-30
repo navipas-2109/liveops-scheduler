@@ -5,10 +5,19 @@ import "server-only";
 import type { SessionUser } from "@/application/auth/login";
 import { login } from "@/application/auth/login";
 import { saveBookingWindow } from "@/application/booking-windows/save-booking-window";
+import {
+  addChannel,
+  deleteChannel,
+  deleteProducer,
+  deleteRoom,
+  saveRoom,
+  setBrandLock,
+} from "@/application/catalog/manage";
+import { getInputPage } from "@/application/slots/get-input-page";
 import { advancePayment } from "@/application/payments/approve-payment";
 import { getPaymentPage, type PaymentTab } from "@/application/payments/get-payment-page";
 import { recordOnTime, recordPayment, type RecordInput } from "@/application/payments/record-payment";
-import type { Clock, ProducerInput, SlotStaff } from "@/application/ports";
+import type { Clock, ProducerInput, RoomInput, SlotStaff } from "@/application/ports";
 import { importShifts, previewShiftImport } from "@/application/shifts/import-shifts";
 import { saveProducer } from "@/application/shifts/producers";
 import { assignStaff, getStaffGrid, getStaffShiftPage } from "@/application/shifts/staff-shift";
@@ -35,6 +44,7 @@ import {
   prismaBrandRepository,
   prismaMcRepository,
   prismaRoomRepository,
+  prismaSlotLockRepository,
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
 import {
   prismaProducerRepository,
@@ -59,6 +69,7 @@ const deps = {
   payments: prismaPaymentRepository,
   shifts: prismaShiftRepository,
   producers: prismaProducerRepository,
+  locks: prismaSlotLockRepository,
   passwords: bcryptHasher,
   notifier: larkNotifier,
   clock,
@@ -79,7 +90,14 @@ export const services = {
     saveBookingWindow(deps, user, window),
   getSchedulePage: (
     user: SessionUser,
-    query: { view: ScheduleView; date: string | null; roomId: string | null; grouping: DayGrouping },
+    query: {
+      view: ScheduleView;
+      date: string | null;
+      roomId: string | null;
+      grouping: DayGrouping;
+      brandName?: string | null;
+      platform?: string | null;
+    },
   ) => getSchedulePage(deps, user, query),
   getMcPlanningPage: (
     user: SessionUser,
@@ -100,6 +118,17 @@ export const services = {
   listProducers: () => deps.producers.listAll(),
   saveProducer: (user: SessionUser, input: ProducerInput, id?: string) =>
     saveProducer(deps, user, input, id),
+  getInputPage: (user: SessionUser, date: string | null) => getInputPage(deps, user, date),
+  listRooms: () => deps.rooms.listAll(),
+  listBrands: () => deps.brands.listAll(),
+  saveRoom: (user: SessionUser, input: RoomInput, id?: string) => saveRoom(deps, user, input, id),
+  deleteRoom: (user: SessionUser, id: string) => deleteRoom(deps, user, id),
+  addChannel: (user: SessionUser, brandName: string, platform: string) =>
+    addChannel(deps, user, brandName, platform),
+  deleteChannel: (user: SessionUser, id: string) => deleteChannel(deps, user, id),
+  deleteProducer: (user: SessionUser, id: string) => deleteProducer(deps, user, id),
+  setBrandLock: (user: SessionUser, brandId: string, month: string, locked: boolean) =>
+    setBrandLock(deps, user, brandId, month, locked),
   getPaymentPage: (user: SessionUser, query: { month: string; tab: PaymentTab }) =>
     getPaymentPage(deps, user, query),
   recordPayment: (user: SessionUser, input: RecordInput) => recordPayment(deps, user, input),

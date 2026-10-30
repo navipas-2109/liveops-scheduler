@@ -15,6 +15,7 @@ const nov: BookingWindow = { targetMonth: "2026-11", openFrom: "2026-10-20", ope
 function fakeDeps(today = "2026-10-29") {
   const rows: SlotRecord[] = [];
   const sent: { channels: NotifyChannel[]; text: string }[] = [];
+  const locked = new Set<string>();
   let seq = 0;
   const session: SlotWriteSession = {
     listOnDate: async (date) => rows.filter((r) => r.date === date).map((r) => ({ ...r })),
@@ -23,7 +24,7 @@ function fakeDeps(today = "2026-10-29") {
         ...slot,
         id: `s${++seq}`,
         mcId: null,
-        producerId: null,
+        producerId: slot.producerId ?? null,
         admin1Id: null,
         admin2Id: null,
         status: "waiting",
@@ -70,18 +71,38 @@ function fakeDeps(today = "2026-10-29") {
     brands: {
       listAll: async () => [brand("puma"), brand("cosrx")],
       listForAe: async (userId) => (userId === "ae1" ? [brand("puma")] : [brand("cosrx")]),
+      create: async () => brand("x"),
+      remove: async () => {},
+      slotCount: async () => 0,
     },
     rooms: {
       listAll: async () => [
-        { id: "R01", shortName: "Room 1", building: "Ripples Studio", floor: 1, size: "Large" },
-        { id: "R02", shortName: "Room 2", building: "Ripples Studio", floor: 2, size: "Small" },
+        { id: "R01", shortName: "Room 1", building: "Ripples Studio", floor: 1, size: "Large", roomNo: "Room 1", brandAssignment: "" },
+        { id: "R02", shortName: "Room 2", building: "Ripples Studio", floor: 2, size: "Small", roomNo: "Room 2", brandAssignment: "" },
       ],
+      create: async () => ({}) as never,
+      update: async () => ({}) as never,
+      remove: async () => {},
+      slotCount: async () => 0,
     },
     bookingWindows: { listAll: async () => [nov], save: async () => {} },
+    locks: {
+      listForMonth: async () => [],
+      isLocked: async (brandId, month) => locked.has(`${brandId}|${month}`),
+      lock: async (brandId, month) => void locked.add(`${brandId}|${month}`),
+      unlock: async (brandId, month) => void locked.delete(`${brandId}|${month}`),
+    },
+    producers: {
+      listAll: async () => [{ id: "pd1", name: "Zay", position: "Producer", employeeId: null, squad: "" }],
+      create: async () => ({}) as never,
+      update: async () => ({}) as never,
+      remove: async () => {},
+      slotCount: async () => 0,
+    },
     notifier: { notify: async (channels, text) => void sent.push({ channels, text }) },
     clock: { today: () => today, nowMinute: () => 12 * 60 },
   };
-  return { deps, rows, sent };
+  return { deps, rows, sent, locked };
 }
 
 function input(overrides: Partial<SlotInput> = {}): SlotInput {
@@ -202,5 +223,27 @@ describe("assignMc", () => {
       ok: false,
       error: "ไลฟ์นี้จบและบันทึกแล้ว เปลี่ยน MC ไม่ได้",
     });
+  });
+});
+
+describe("brand locks", () => {
+  const planner: SessionUser = { userId: "p1", name: "Planner", role: "PLANNER" };
+  const operation: SessionUser = { userId: "op", name: "Operation", role: "OPERATION" };
+
+  it("Operation can book for a PD; once the brand-month is locked only Planners can change it", async () => {
+    const env = fakeDeps();
+    const r = await saveSlot(env.deps, operation, input({ producerId: "pd1" }));
+    expect(r.ok && env.rows[0].producerId).toBe("pd1");
+    const id = r.ok ? r.slot.id : "";
+
+    env.locked.add("puma|2026-11");
+    const blocked = await saveSlot(env.deps, operation, input({ startMinute: t("13:00"), endMinute: t("15:00") }), id);
+    expect(blocked).toEqual({ ok: false, error: "แบรนด์นี้ล็อกสล็อตเดือนนี้แล้ว — แก้ไขได้เฉพาะ Planner" });
+    expect((await saveSlot(env.deps, ae, input({ date: "2026-11-11" }))).ok).toBe(false);
+    expect((await deleteSlot(env.deps, operation, id)).ok).toBe(false);
+
+    const byPlanner = await saveSlot(env.deps, planner, input({ startMinute: t("13:00"), endMinute: t("15:00") }), id);
+    expect(byPlanner.ok).toBe(true);
+    expect((await deleteSlot(env.deps, planner, id)).ok).toBe(true);
   });
 });

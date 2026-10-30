@@ -2,7 +2,7 @@
 
 import { CircleAlert, CircleCheck, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Brand, Room } from "@/application/ports";
+import type { Brand, Producer, Room } from "@/application/ports";
 import type { RoomClash } from "@/application/slots/check-room";
 import { fromLiveMinutes } from "@/domain/time";
 import { TIME_CHOICES, timeRange } from "../../format";
@@ -18,13 +18,15 @@ interface Props {
   initial: SlotFormValues;
   brands: Brand[];
   rooms: Room[];
+  // When given, the form also picks the slot's Producer (Input Live Slot).
+  producers?: Producer[];
   onClose: () => void;
 }
 
 type RoomCheck = { state: "idle" | "checking" } | { state: "done"; clashes: RoomClash[] };
 
 // Slide-in form for adding or editing a slot, with a live room check.
-export function SlotDrawer({ initial, brands, rooms, onClose }: Props) {
+export function SlotDrawer({ initial, brands, rooms, producers, onClose }: Props) {
   const initialBrand = brands.find((b) => b.id === initial.brandId);
   const [values, setValues] = useState(initial);
   const [brandName, setBrandName] = useState(initialBrand?.brandName ?? "");
@@ -130,6 +132,25 @@ export function SlotDrawer({ initial, brands, rooms, onClose }: Props) {
               </select>
             </label>
           </div>
+
+          {producers && (
+            <label className="grid gap-1.5">
+              <span className="text-[11px] text-soft">Producer (PD)</span>
+              <select
+                value={values.producerId ?? ""}
+                onChange={(e) => set({ producerId: e.target.value || null })}
+                className={field}
+              >
+                <option value="">— ยังไม่ระบุ —</option>
+                {producers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.squad && ` · ${p.squad}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <label className="grid gap-1.5">
             <span className="text-[11px] text-soft">วันที่</span>

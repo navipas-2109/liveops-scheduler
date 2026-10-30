@@ -17,7 +17,10 @@ export type PageId =
   | "staffShift"
   | "mcDatabase"
   | "producerDatabase"
-  | "payments";
+  | "payments"
+  | "inputSlots"
+  | "roomDatabase"
+  | "channelDatabase";
 
 const ALL_ROLES: Role[] = ["AE", "PLANNER", "OPERATION", "MANAGER"];
 
@@ -26,10 +29,13 @@ export const PAGE_ACCESS: Record<PageId, Role[]> = {
   schedule: ALL_ROLES,
   brandSlots: ["AE", "MANAGER"],
   mcPlanning: ["PLANNER", "MANAGER"],
-  staffShift: ["OPERATION", "MANAGER"],
+  staffShift: ["OPERATION", "PLANNER", "MANAGER"],
   mcDatabase: ["PLANNER", "MANAGER"],
   producerDatabase: ["OPERATION", "MANAGER"],
   payments: ["OPERATION", "MANAGER"],
+  inputSlots: ["OPERATION", "PLANNER", "MANAGER"],
+  roomDatabase: ["OPERATION", "PLANNER", "MANAGER"],
+  channelDatabase: ["OPERATION", "PLANNER", "MANAGER"],
 };
 
 export const HOME_PAGE: Record<Role, PageId> = {
