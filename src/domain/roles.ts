@@ -11,7 +11,6 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 export type PageId =
   | "dashboard"
-  | "schedule"
   | "brandSlots"
   | "mcPlanning"
   | "staffShift"
@@ -22,11 +21,8 @@ export type PageId =
   | "roomDatabase"
   | "channelDatabase";
 
-const ALL_ROLES: Role[] = ["AE", "PLANNER", "OPERATION", "MANAGER"];
-
 export const PAGE_ACCESS: Record<PageId, Role[]> = {
   dashboard: ["MANAGER"],
-  schedule: ALL_ROLES,
   brandSlots: ["AE", "MANAGER"],
   mcPlanning: ["PLANNER", "MANAGER"],
   staffShift: ["OPERATION", "PLANNER", "MANAGER"],

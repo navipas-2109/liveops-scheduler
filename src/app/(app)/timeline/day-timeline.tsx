@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import type { SlotListItem } from "@/application/ports";
 import { fromLiveMinutes } from "@/domain/time";
 import { dayLabel, timeRange } from "../../format";
-import { assignLanes, BLOCK_STYLE, HOURS, outsideShift, place, type TimelineRow } from "./schedule-shared";
+import { assignLanes, BLOCK_STYLE, HOURS, outsideShift, place, type TimelineRow } from "./timeline-shared";
 
 interface Props {
   date: string;

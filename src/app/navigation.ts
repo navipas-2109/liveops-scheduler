@@ -10,12 +10,6 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard", description: "สรุปภาพรวมประจำวัน" },
   {
-    id: "schedule",
-    href: "/schedule",
-    label: "Live Schedule",
-    description: "ตารางไลฟ์แยกตามห้อง กรองแบรนด์/Channel ได้",
-  },
-  {
     id: "inputSlots",
     href: "/input-slots",
     label: "Input Live Slot",

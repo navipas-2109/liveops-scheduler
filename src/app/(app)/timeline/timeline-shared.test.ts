@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShiftItem, SlotListItem } from "@/application/ports";
 import { toLiveMinutes as t } from "@/domain/time";
-import { outsideShift, pdRows } from "./schedule-shared";
+import { outsideShift, pdRows } from "./timeline-shared";
 
 const slot = (id: string, producerId: string | null, start: string, end: string): SlotListItem => ({
   id,
