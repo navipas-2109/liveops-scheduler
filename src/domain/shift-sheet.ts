@@ -171,3 +171,13 @@ export function guessMonth(fileName: string): string | null {
   if (!m) return null;
   return `${m[2]}-${String(MONTHS.indexOf(m[1].toLowerCase()) + 1).padStart(2, "0")}`;
 }
+
+// The month cell of the template (B2), or any date above the header row.
+export function monthFromRows(rows: CellValue[][]): string | null {
+  for (const row of rows) {
+    if (row.some((v) => typeof v === "string" && v.trim().toLowerCase() === "name")) break;
+    const d = row.find((v): v is Date => v instanceof Date && !Number.isNaN(v.getTime()));
+    if (d) return d.toISOString().slice(0, 7);
+  }
+  return null;
+}

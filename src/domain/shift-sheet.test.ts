@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { guessMonth, parseShiftSheet, pickShiftSheet, positionFromTitle, rowsToText } from "./shift-sheet";
+import {
+  guessMonth,
+  monthFromRows,
+  parseShiftSheet,
+  pickShiftSheet,
+  positionFromTitle,
+  rowsToText,
+} from "./shift-sheet";
 import { toLiveMinutes as t } from "./time";
 
 // Same shape as the "2. Shift Planning" tab, copied from column A.
@@ -76,5 +83,13 @@ describe(".xlsx helpers", () => {
     expect(guessMonth("11. Live Calendar (Nov 2026).xlsx")).toBe("2026-11");
     expect(guessMonth("Live Calendar December_2026.xlsx")).toBe("2026-12");
     expect(guessMonth("shifts.xlsx")).toBeNull();
+  });
+});
+
+describe("monthFromRows", () => {
+  it("reads the template's month cell above the header only", () => {
+    const header = ["Employee ID", "Name", "Title", "Squad", 1];
+    expect(monthFromRows([["ตาราง"], ["เดือน", new Date("2026-12-01T00:00:00Z")], header])).toBe("2026-12");
+    expect(monthFromRows([header, ["1", "M", "", "", new Date("2026-12-01T00:00:00Z")]])).toBeNull();
   });
 });

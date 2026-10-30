@@ -3,7 +3,7 @@
 import { FileSpreadsheet, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ImportPreview, MatchKind } from "@/application/shifts/import-shifts";
-import { guessMonth, pickShiftSheet, rowsToText, SHIFT_CODES, type CellValue } from "@/domain/shift-sheet";
+import { guessMonth, monthFromRows, pickShiftSheet, rowsToText, SHIFT_CODES, type CellValue } from "@/domain/shift-sheet";
 import { monthLabel } from "../../format";
 import { importShiftsAction, previewImportAction } from "./actions";
 
@@ -54,8 +54,10 @@ export function ImportDrawer({ defaultMonth, onClose }: { defaultMonth: string; 
       const sheets = (await readExcelFile(file)).map((x) => ({ name: x.sheet, rows: x.data as CellValue[][] }));
       const names = sheets.map((x) => x.name);
       const wb = { fileName: file.name, sheets, selected: "" };
-      selectSheet(wb, pickShiftSheet(names) ?? names[0]);
-      const guessed = guessMonth(file.name);
+      const chosen = pickShiftSheet(names) ?? names[0];
+      selectSheet(wb, chosen);
+      // The template's month cell (B2) wins; otherwise try the file name.
+      const guessed = monthFromRows(sheets.find((x) => x.name === chosen)?.rows ?? []) ?? guessMonth(file.name);
       if (guessed) setMonth(guessed);
     } catch {
       setError("อ่านไฟล์ไม่ได้ — ตรวจว่าเป็นไฟล์ .xlsx ที่ดาวน์โหลดจาก Google Sheets");
@@ -132,9 +134,12 @@ export function ImportDrawer({ defaultMonth, onClose }: { defaultMonth: string; 
             {source === "file" ? (
               <>
                 <li>
-                  ใน Google Sheet ไปที่ <b>File → Download → Microsoft Excel (.xlsx)</b>
+                  ใน Google Sheet ไปที่ <b>File → Download → Microsoft Excel (.xlsx)</b> · ยังไม่มีตาราง?{" "}
+                  <a href="/templates/shift-import-template.xlsx" download className="font-semibold text-accent underline">
+                    ดาวน์โหลดไฟล์ต้นแบบ
+                  </a>
                 </li>
-                <li>เลือกไฟล์ด้านล่าง — ระบบจะเลือกแท็บ Shift Planning และเดือนจากชื่อไฟล์ให้</li>
+                <li>เลือกไฟล์ด้านล่าง — ระบบจะเลือกแท็บ Shift Planning และเดือน (จากช่องเดือนหรือชื่อไฟล์) ให้</li>
                 <li>ตรวจแท็บ/เดือน แล้วกด “ตรวจสอบ”</li>
               </>
             ) : (
