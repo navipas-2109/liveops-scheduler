@@ -8,7 +8,10 @@ import { saveBookingWindow } from "@/application/booking-windows/save-booking-wi
 import { advancePayment } from "@/application/payments/approve-payment";
 import { getPaymentPage, type PaymentTab } from "@/application/payments/get-payment-page";
 import { recordOnTime, recordPayment, type RecordInput } from "@/application/payments/record-payment";
-import type { Clock } from "@/application/ports";
+import type { Clock, ProducerInput, SlotStaff } from "@/application/ports";
+import { importShifts, previewShiftImport } from "@/application/shifts/import-shifts";
+import { saveProducer } from "@/application/shifts/producers";
+import { assignStaff, getStaffShiftPage } from "@/application/shifts/staff-shift";
 import { assignMc, getBusyMcs } from "@/application/slots/assign-mc";
 import { checkRoomAvailability } from "@/application/slots/check-room";
 import { deleteSlot } from "@/application/slots/delete-slot";
@@ -28,7 +31,10 @@ import {
   prismaMcRepository,
   prismaRoomRepository,
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
-import { prismaShiftRepository } from "@/infrastructure/repositories/prisma-shift-repository";
+import {
+  prismaProducerRepository,
+  prismaShiftRepository,
+} from "@/infrastructure/repositories/prisma-shift-repository";
 import { prismaPaymentRepository } from "@/infrastructure/repositories/prisma-payment-repository";
 import { prismaSlotRepository } from "@/infrastructure/repositories/prisma-slot-repository";
 import { prismaUserRepository } from "@/infrastructure/repositories/prisma-user-repository";
@@ -47,6 +53,7 @@ const deps = {
   bookingWindows: prismaBookingWindowRepository,
   payments: prismaPaymentRepository,
   shifts: prismaShiftRepository,
+  producers: prismaProducerRepository,
   passwords: bcryptHasher,
   notifier: larkNotifier,
   clock,
@@ -76,6 +83,16 @@ export const services = {
   getBusyMcs: (slotId: string) => getBusyMcs(deps, slotId),
   assignMc: (user: SessionUser, slotId: string, mcId: string | null) =>
     assignMc(deps, user, slotId, mcId),
+  getStaffShiftPage: (user: SessionUser, date: string | null) => getStaffShiftPage(deps, user, date),
+  assignStaff: (user: SessionUser, slotId: string, staff: SlotStaff) =>
+    assignStaff(deps, user, slotId, staff),
+  previewShiftImport: (user: SessionUser, input: { month: string; text: string }) =>
+    previewShiftImport(deps, user, input),
+  importShifts: (user: SessionUser, input: { month: string; text: string }) =>
+    importShifts(deps, user, input),
+  listProducers: () => deps.producers.listAll(),
+  saveProducer: (user: SessionUser, input: ProducerInput, id?: string) =>
+    saveProducer(deps, user, input, id),
   getPaymentPage: (user: SessionUser, query: { month: string; tab: PaymentTab }) =>
     getPaymentPage(deps, user, query),
   recordPayment: (user: SessionUser, input: RecordInput) => recordPayment(deps, user, input),

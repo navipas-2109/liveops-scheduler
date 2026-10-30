@@ -28,6 +28,7 @@ const recordSelect = {
   mcId: true,
   producerId: true,
   admin1Id: true,
+  admin2Id: true,
   status: true,
 } satisfies Prisma.SlotSelect;
 
@@ -78,6 +79,9 @@ function sessionFor(db: Db): SlotWriteSession {
     },
     async setMc(id, mcId, plannerId) {
       await db.slot.update({ where: { id }, data: { mcId, plannerId } });
+    },
+    async setStaff(id, staff) {
+      await db.slot.update({ where: { id }, data: staff });
     },
   };
 }

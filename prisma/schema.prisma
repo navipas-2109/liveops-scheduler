@@ -51,6 +51,13 @@ enum ProducerPosition {
   JR_PRODUCER @map("Jr. Producer")
 }
 
+enum ShiftKind {
+  LIVE   @map("live") // on the live floor (codes 2, 3, 4)
+  OFFICE @map("office") // office hours, not running lives (OF)
+  OFF    @map("off") // day off (1)
+  LEAVE  @map("leave") // leave (VL)
+}
+
 enum SlotStatus {
   EMPTY     @map("empty")
   WAITING   @map("waiting")
@@ -119,9 +126,11 @@ model Mc {
 }
 
 model Producer {
-  id       String           @id @default(cuid())
-  name     String           @unique
-  position ProducerPosition
+  id         String           @id @default(cuid())
+  name       String           @unique
+  position   ProducerPosition
+  employeeId String?          @unique @map("employee_id")
+  squad      String           @default("") // brands they usually cover
 
   producerSlots Slot[]  @relation("SlotProducer")
   admin1Slots   Slot[]  @relation("SlotAdmin1")
@@ -213,15 +222,19 @@ model Payment {
   @@map("payments")
 }
 
+// One row per Producer per day, as in the team's shift sheet.
 model Shift {
-  id         String   @id @default(cuid())
-  producerId String   @map("producer_id")
-  producer   Producer @relation(fields: [producerId], references: [id])
-  date       DateTime @db.Date
-  shiftStart Int      @map("shift_start") // live-day minutes
-  shiftEnd   Int      @map("shift_end") // live-day minutes
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         String    @id @default(cuid())
+  producerId String    @map("producer_id")
+  producer   Producer  @relation(fields: [producerId], references: [id])
+  date       DateTime  @db.Date
+  kind       ShiftKind @default(LIVE)
+  code       String    @default("") // code from the sheet, e.g. "2" or "OF"
+  shiftStart Int?      @map("shift_start") // live-day minutes; empty on days off
+  shiftEnd   Int?      @map("shift_end")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
+  @@unique([producerId, date])
   @@index([date])
   @@map("shifts")
 }

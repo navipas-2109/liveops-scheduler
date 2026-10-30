@@ -63,6 +63,8 @@ const NO_PD = "__none__";
 export function pdRows(slots: SlotListItem[], shifts: ShiftItem[]): TimelineRow[] {
   const rows = new Map<string, TimelineRow>();
   for (const sh of shifts) {
+    // Days off and leave have no hours; they don't get a row.
+    if (sh.shiftStart === null || sh.shiftEnd === null) continue;
     const existing = rows.get(sh.producerId);
     if (existing?.shift) {
       // Two shifts in one day: show the span from first start to last end.
@@ -75,7 +77,7 @@ export function pdRows(slots: SlotListItem[], shifts: ShiftItem[]): TimelineRow[
     rows.set(sh.producerId, {
       id: sh.producerId,
       title: sh.producerName,
-      subtitle: `${sh.position} · กะ ${fromLiveMinutes(sh.shiftStart)}–${fromLiveMinutes(sh.shiftEnd)}`,
+      subtitle: `${sh.position} · ${sh.kind === "office" ? "ออฟฟิศ" : "กะ"} ${fromLiveMinutes(sh.shiftStart)}–${fromLiveMinutes(sh.shiftEnd)}`,
       accent: "#4c8dff",
       shift: { start: sh.shiftStart, end: sh.shiftEnd },
       slots: [],

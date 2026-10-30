@@ -3,6 +3,7 @@
 
 import type { BookingWindow } from "@/domain/booking";
 import type { LateReason, RateType } from "@/domain/payment";
+import type { ShiftKind } from "@/domain/shift-sheet";
 import type { Role } from "@/domain/roles";
 import type { SlotStatus } from "@/domain/slot-rules";
 
@@ -77,6 +78,7 @@ export interface SlotRecord {
   mcId: string | null;
   producerId: string | null;
   admin1Id: string | null;
+  admin2Id: string | null;
   status: SlotStatus;
 }
 
@@ -130,6 +132,13 @@ export interface SlotWriteSession {
   remove(id: string): Promise<void>;
   setStatus(id: string, status: SlotStatus): Promise<void>;
   setMc(id: string, mcId: string | null, plannerId: string): Promise<void>;
+  setStaff(id: string, staff: SlotStaff): Promise<void>;
+}
+
+export interface SlotStaff {
+  producerId: string | null;
+  admin1Id: string | null;
+  admin2Id: string | null;
 }
 
 export interface SlotRepository {
@@ -143,17 +152,54 @@ export interface SlotRepository {
   withDatesLocked<T>(dates: string[], work: (session: SlotWriteSession) => Promise<T>): Promise<T>;
 }
 
+export type { ShiftKind };
+
 export interface ShiftItem {
   producerId: string;
   producerName: string;
   position: string;
+  squad: string;
   date: string;
-  shiftStart: number; // live-day minutes
-  shiftEnd: number;
+  kind: ShiftKind;
+  code: string;
+  shiftStart: number | null; // live-day minutes; null on days off and leave
+  shiftEnd: number | null;
+}
+
+export interface Producer {
+  id: string;
+  name: string;
+  position: string;
+  employeeId: string | null;
+  squad: string;
+}
+
+export interface ProducerInput {
+  name: string;
+  position: string; // display label, e.g. "Jr. Producer"
+  employeeId: string | null;
+  squad: string;
+}
+
+export interface ShiftEntry {
+  producerId: string;
+  date: string;
+  kind: ShiftKind;
+  code: string;
+  shiftStart: number | null;
+  shiftEnd: number | null;
 }
 
 export interface ShiftRepository {
   listInRange(from: string, to: string): Promise<ShiftItem[]>;
+  // Replaces these producers' shifts in [from, to] with `entries`, in one transaction.
+  replace(from: string, to: string, producerIds: string[], entries: ShiftEntry[]): Promise<void>;
+}
+
+export interface ProducerRepository {
+  listAll(): Promise<Producer[]>;
+  create(input: ProducerInput): Promise<Producer>;
+  update(id: string, input: ProducerInput): Promise<Producer>;
 }
 
 export type NotifyChannel = "planner" | "operation" | "finance";

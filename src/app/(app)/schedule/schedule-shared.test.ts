@@ -16,6 +16,7 @@ const slot = (id: string, producerId: string | null, start: string, end: string)
   mcId: null,
   producerId,
   admin1Id: null,
+  admin2Id: null,
   status: "waiting",
   brandName: "PUMA",
   platform: "TikTok",
@@ -32,7 +33,10 @@ const shift = (producerId: string, start: string, end: string): ShiftItem => ({
   producerId,
   producerName: producerId.toUpperCase(),
   position: "Producer",
+  squad: "",
   date: "2026-11-12",
+  kind: "live",
+  code: "2",
   shiftStart: t(start),
   shiftEnd: t(end),
 });

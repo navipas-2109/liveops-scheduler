@@ -25,6 +25,7 @@ function fakeDeps(today = "2026-10-29") {
         mcId: null,
         producerId: null,
         admin1Id: null,
+        admin2Id: null,
         status: "waiting",
       };
       rows.push(row);
@@ -43,6 +44,9 @@ function fakeDeps(today = "2026-10-29") {
     },
     setMc: async (id, mcId) => {
       rows.find((r) => r.id === id)!.mcId = mcId;
+    },
+    setStaff: async (id, staff) => {
+      Object.assign(rows.find((r) => r.id === id)!, staff);
     },
   };
   const slots = {
