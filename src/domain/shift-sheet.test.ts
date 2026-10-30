@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseShiftSheet, positionFromTitle } from "./shift-sheet";
+import { guessMonth, parseShiftSheet, pickShiftSheet, positionFromTitle, rowsToText } from "./shift-sheet";
 import { toLiveMinutes as t } from "./time";
 
 // Same shape as the "2. Shift Planning" tab, copied from column A.
@@ -55,5 +55,26 @@ describe("positionFromTitle", () => {
     expect(positionFromTitle("Senior Producer")).toBe("Senior Producer");
     expect(positionFromTitle("Jr. Producer")).toBe("Jr. Producer");
     expect(positionFromTitle("Producer")).toBe("Producer");
+  });
+});
+
+describe(".xlsx helpers", () => {
+  it("turns sheet rows into the paste format the parser reads", () => {
+    const text = rowsToText([
+      [null, "Employee ID", "Name", "Title", "Squad", 1, 2],
+      [null, 110112, "M", "Producer Team Lead", null, 1, "OF"],
+    ]);
+    const r = parseShiftSheet(text, "2026-11");
+    if (!r.ok) throw new Error(r.error);
+    expect(r.result.people[0].employeeId).toBe("110112");
+    expect(r.result.entries.map((e) => e.code)).toEqual(["1", "OF"]);
+  });
+
+  it("finds the shift tab and the month", () => {
+    expect(pickShiftSheet(["Room New", "Brand_Slot", "2. Shift Planning", "NOV X MC"])).toBe("2. Shift Planning");
+    expect(pickShiftSheet(["Sheet1"])).toBeNull();
+    expect(guessMonth("11. Live Calendar (Nov 2026).xlsx")).toBe("2026-11");
+    expect(guessMonth("Live Calendar December_2026.xlsx")).toBe("2026-12");
+    expect(guessMonth("shifts.xlsx")).toBeNull();
   });
 });

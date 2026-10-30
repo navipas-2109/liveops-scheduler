@@ -1,9 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
+import { FileSpreadsheet, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ImportPreview, MatchKind } from "@/application/shifts/import-shifts";
-import { SHIFT_CODES } from "@/domain/shift-sheet";
+import { guessMonth, pickShiftSheet, rowsToText, SHIFT_CODES, type CellValue } from "@/domain/shift-sheet";
 import { monthLabel } from "../../format";
 import { importShiftsAction, previewImportAction } from "./actions";
 
@@ -13,9 +13,15 @@ const MATCH_LABEL: Record<MatchKind, { text: string; className: string }> = {
   new: { text: "พนักงานใหม่ · จะเพิ่มให้", className: "bg-waiting-bg text-waiting-fg" },
 };
 
-// Paste the month's shift sheet, check what will happen, then import.
+type Workbook = { fileName: string; sheets: { name: string; rows: CellValue[][] }[]; selected: string };
+
+// Upload the month's .xlsx (or paste the shift tab), check what will happen,
+// then import. The workbook is read in the browser; only the chosen tab's
+// cells are sent to the server.
 export function ImportDrawer({ defaultMonth, onClose }: { defaultMonth: string; onClose: () => void }) {
   const [month, setMonth] = useState(defaultMonth);
+  const [source, setSource] = useState<"file" | "paste">("file");
+  const [workbook, setWorkbook] = useState<Workbook | null>(null);
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +33,36 @@ export function ImportDrawer({ defaultMonth, onClose }: { defaultMonth: string; 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  function selectSheet(wb: Workbook, name: string) {
+    setWorkbook({ ...wb, selected: name });
+    setText(rowsToText(wb.sheets.find((x) => x.name === name)?.rows ?? []));
+    setPreview(null);
+    setDone(null);
+  }
+
+  async function readFile(file: File) {
+    setError(null);
+    setPreview(null);
+    setDone(null);
+    setWorkbook(null);
+    setText("");
+    if (!/\.xlsx$/i.test(file.name)) return setError("รองรับเฉพาะไฟล์ .xlsx (Google Sheets: File → Download → Microsoft Excel)");
+    setPending(true);
+    try {
+      const { default: readExcelFile } = await import("read-excel-file/browser");
+      const sheets = (await readExcelFile(file)).map((x) => ({ name: x.sheet, rows: x.data as CellValue[][] }));
+      const names = sheets.map((x) => x.name);
+      const wb = { fileName: file.name, sheets, selected: "" };
+      selectSheet(wb, pickShiftSheet(names) ?? names[0]);
+      const guessed = guessMonth(file.name);
+      if (guessed) setMonth(guessed);
+    } catch {
+      setError("อ่านไฟล์ไม่ได้ — ตรวจว่าเป็นไฟล์ .xlsx ที่ดาวน์โหลดจาก Google Sheets");
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function check() {
     setPending(true);
@@ -66,13 +102,51 @@ export function ImportDrawer({ defaultMonth, onClose }: { defaultMonth: string; 
         </div>
 
         <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-5 text-xs">
+          <div role="tablist" className="grid grid-cols-2 rounded-lg bg-field p-1">
+            {(
+              [
+                ["file", "อัปโหลดไฟล์ .xlsx"],
+                ["paste", "วางข้อมูล (Copy-Paste)"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={source === id}
+                onClick={() => {
+                  setSource(id);
+                  setText("");
+                  setWorkbook(null);
+                  setPreview(null);
+                  setError(null);
+                }}
+                className={`rounded-md px-2 py-2 font-medium ${source === id ? "bg-card text-ink shadow" : "text-muted hover:text-soft"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <ol className="grid list-decimal gap-1 rounded-lg bg-field px-5 py-3 text-soft">
-            <li>เปิดแท็บ <b>Shift Planning</b> ของเดือนที่ต้องการ</li>
-            <li>
-              ลากเลือกตั้งแต่แถว <b>Employee ID · Name · Title · Squad · 1 2 3 …</b> ลงไปถึงพนักงานคนสุดท้าย แล้วกด
-              Ctrl+C (Mac: ⌘+C)
-            </li>
-            <li>วางในช่องด้านล่าง แล้วกด “ตรวจสอบ”</li>
+            {source === "file" ? (
+              <>
+                <li>
+                  ใน Google Sheet ไปที่ <b>File → Download → Microsoft Excel (.xlsx)</b>
+                </li>
+                <li>เลือกไฟล์ด้านล่าง — ระบบจะเลือกแท็บ Shift Planning และเดือนจากชื่อไฟล์ให้</li>
+                <li>ตรวจแท็บ/เดือน แล้วกด “ตรวจสอบ”</li>
+              </>
+            ) : (
+              <>
+                <li>เปิดแท็บ <b>Shift Planning</b> ของเดือนที่ต้องการ</li>
+                <li>
+                  ลากเลือกตั้งแต่แถว <b>Employee ID · Name · Title · Squad · 1 2 3 …</b> ลงไปถึงพนักงานคนสุดท้าย แล้วกด
+                  Ctrl+C (Mac: ⌘+C)
+                </li>
+                <li>วางในช่องด้านล่าง แล้วกด “ตรวจสอบ”</li>
+              </>
+            )}
           </ol>
 
           <div className="flex flex-wrap gap-1.5">
@@ -98,21 +172,63 @@ export function ImportDrawer({ defaultMonth, onClose }: { defaultMonth: string; 
             />
           </label>
 
-          <label className="grid gap-1.5">
-            <span className="text-[11px] text-soft">วางข้อมูลจาก Google Sheet</span>
-            <textarea
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                setPreview(null);
-                setDone(null);
-              }}
-              rows={7}
-              spellCheck={false}
-              placeholder={"Employee ID\tName\tTitle\tSquad\t1\t2\t3 …\n110112\tM\tProducer Team Lead\t\t1\tOF\tOF …"}
-              className="w-full resize-y rounded-lg border border-line-strong bg-field px-3 py-2 font-mono text-[11px] text-ink outline-none placeholder:text-muted focus:border-primary"
-            />
-          </label>
+          {source === "file" ? (
+            <div className="grid gap-3">
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-line-strong bg-field px-4 py-4 hover:border-primary">
+                <FileSpreadsheet size={20} className="shrink-0 text-accent" />
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-ink">
+                    {workbook ? workbook.fileName : pending ? "กำลังอ่านไฟล์…" : "เลือกไฟล์ .xlsx"}
+                  </span>
+                  <span className="block text-[11px] text-muted">
+                    {workbook ? `${workbook.sheets.length} แท็บในไฟล์ · คลิกเพื่อเปลี่ยนไฟล์` : "ไฟล์จะถูกอ่านในเครื่องของคุณ ไม่ได้อัปโหลดทั้งไฟล์"}
+                  </span>
+                </span>
+                <input
+                  type="file"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) readFile(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {workbook && (
+                <label className="grid gap-1.5">
+                  <span className="text-[11px] text-soft">แท็บที่มีตารางกะ</span>
+                  <select
+                    value={workbook.selected}
+                    onChange={(e) => selectSheet(workbook, e.target.value)}
+                    className="w-full max-w-sm rounded-lg border border-line-strong bg-field px-3 py-2 text-ink outline-none focus:border-primary"
+                  >
+                    {workbook.sheets.map((x) => (
+                      <option key={x.name} value={x.name}>
+                        {x.name} ({x.rows.length} แถว)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          ) : (
+            <label className="grid gap-1.5">
+              <span className="text-[11px] text-soft">วางข้อมูลจาก Google Sheet</span>
+              <textarea
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setPreview(null);
+                  setDone(null);
+                }}
+                rows={7}
+                spellCheck={false}
+                placeholder={"Employee ID\tName\tTitle\tSquad\t1\t2\t3 …\n110112\tM\tProducer Team Lead\t\t1\tOF\tOF …"}
+                className="w-full resize-y rounded-lg border border-line-strong bg-field px-3 py-2 font-mono text-[11px] text-ink outline-none placeholder:text-muted focus:border-primary"
+              />
+            </label>
+          )}
 
           {error && <p role="alert" className="rounded-lg bg-conflict-bg px-3 py-2 text-conflict-fg">{error}</p>}
           {done && <p role="status" className="rounded-lg bg-confirmed-bg px-3 py-2 text-confirmed-fg">{done}</p>}

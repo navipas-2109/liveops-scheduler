@@ -134,3 +134,40 @@ export function positionFromTitle(title: string): string {
   if (t.includes("producer")) return "Producer";
   return "Jr. Producer";
 }
+
+// ---- .xlsx support: the browser reads the workbook, then the chosen tab is
+// turned into the same tab-separated text a paste from Google Sheets gives.
+
+export type CellValue = string | number | boolean | Date | null | undefined;
+
+export function rowsToText(rows: CellValue[][]): string {
+  return rows
+    .map((row) =>
+      row
+        .map((v) => {
+          if (v === null || v === undefined) return "";
+          if (v instanceof Date) return v.toISOString().slice(0, 10);
+          return String(v).replace(/[\t\n\r]+/g, " ");
+        })
+        .join("\t"),
+    )
+    .join("\n");
+}
+
+// The tab that holds the shift grid, e.g. "2. Shift Planning".
+export function pickShiftSheet(names: string[]): string | null {
+  return (
+    names.find((n) => /shift\s*planning/i.test(n)) ??
+    names.find((n) => /shift|กะ/i.test(n)) ??
+    null
+  );
+}
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+// "11. Live Calendar (Nov 2026).xlsx" → "2026-11"; null when there's no hint.
+export function guessMonth(fileName: string): string | null {
+  const m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s._-]*(20\d{2})\b/i.exec(fileName);
+  if (!m) return null;
+  return `${m[2]}-${String(MONTHS.indexOf(m[1].toLowerCase()) + 1).padStart(2, "0")}`;
+}
