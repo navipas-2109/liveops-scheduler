@@ -108,3 +108,50 @@ describe("saveProducer", () => {
     expect(self.ok).toBe(true);
   });
 });
+
+describe("getStaffGrid", () => {
+  it("builds per-person codes, assignments and daily totals", async () => {
+    const { getStaffGrid } = await import("./staff-shift");
+    const shift = (producerId: string, date: string, code: string, kind: "live" | "office" | "off" | "leave") => ({
+      producerId,
+      producerName: producerId,
+      position: "Producer",
+      squad: "",
+      date,
+      kind,
+      code,
+      shiftStart: kind === "live" ? 450 : null,
+      shiftEnd: kind === "live" ? 990 : null,
+    });
+    const slot = (id: string, date: string, producerId: string | null, admin1Id: string | null) =>
+      ({ id, date, producerId, admin1Id, admin2Id: null }) as never;
+    const grid = await getStaffGrid(
+      {
+        shifts: {
+          listInRange: async () => [shift("p1", "2026-11-02", "2", "live"), shift("p2", "2026-11-02", "1", "off")],
+          replace: async () => {},
+        },
+        slots: {
+          list: async () => [slot("a", "2026-11-02", "p1", "p2"), slot("b", "2026-11-02", "p1", null)],
+        } as never,
+        producers: {
+          listAll: async () => [
+            { id: "p2", name: "Jr", position: "Jr. Producer", employeeId: null, squad: "" },
+            { id: "p1", name: "Lead", position: "Producer Team Lead", employeeId: null, squad: "" },
+            { id: "p3", name: "Idle", position: "Producer", employeeId: null, squad: "" },
+          ],
+          create: async () => ({}) as never,
+          update: async () => ({}) as never,
+        },
+        clock: { today: () => "2026-11-02", nowMinute: () => 600 },
+      },
+      operation,
+      { view: "week", date: "2026-11-02", from: "2026-11-02", to: "2026-11-08" },
+    );
+    expect(grid.days).toHaveLength(7);
+    expect(grid.people.map((p) => p.name)).toEqual(["Lead", "Jr"]); // leads first, idle people left out
+    expect(grid.codes.p1["2026-11-02"]).toBe("2");
+    expect(grid.assigned.p1["2026-11-02"]).toBe(2);
+    expect(grid.totals["2026-11-02"]).toEqual({ live: 1, office: 0, away: 1, lives: 2, notReady: 1 });
+  });
+});

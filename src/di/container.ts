@@ -11,14 +11,19 @@ import { recordOnTime, recordPayment, type RecordInput } from "@/application/pay
 import type { Clock, ProducerInput, SlotStaff } from "@/application/ports";
 import { importShifts, previewShiftImport } from "@/application/shifts/import-shifts";
 import { saveProducer } from "@/application/shifts/producers";
-import { assignStaff, getStaffShiftPage } from "@/application/shifts/staff-shift";
+import { assignStaff, getStaffGrid, getStaffShiftPage } from "@/application/shifts/staff-shift";
 import { assignMc, getBusyMcs } from "@/application/slots/assign-mc";
 import { checkRoomAvailability } from "@/application/slots/check-room";
 import { deleteSlot } from "@/application/slots/delete-slot";
 import { getTodayAlerts } from "@/application/slots/get-alerts";
 import { getBrandSlotPage, type BrandSlotPageQuery } from "@/application/slots/get-brand-slot-page";
 import { getMcPlanningPage } from "@/application/slots/get-mc-planning-page";
-import { getSchedulePage, type DayGrouping, type ScheduleView } from "@/application/slots/get-schedule-page";
+import {
+  getSchedulePage,
+  rangeFor,
+  type DayGrouping,
+  type ScheduleView,
+} from "@/application/slots/get-schedule-page";
 import { saveSlot, type SlotInput } from "@/application/slots/save-slot";
 import type { BookingWindow } from "@/domain/booking";
 import type { SlotStatus } from "@/domain/slot-rules";
@@ -84,6 +89,8 @@ export const services = {
   assignMc: (user: SessionUser, slotId: string, mcId: string | null) =>
     assignMc(deps, user, slotId, mcId),
   getStaffShiftPage: (user: SessionUser, date: string | null) => getStaffShiftPage(deps, user, date),
+  getStaffGrid: (user: SessionUser, view: "week" | "month", date: string | null) =>
+    getStaffGrid(deps, user, { view, date, ...rangeFor(view, date ?? clock.today()) }),
   assignStaff: (user: SessionUser, slotId: string, staff: SlotStaff) =>
     assignStaff(deps, user, slotId, staff),
   previewShiftImport: (user: SessionUser, input: { month: string; text: string }) =>

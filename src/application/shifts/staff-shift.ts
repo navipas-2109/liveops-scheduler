@@ -76,3 +76,115 @@ export async function assignStaff(
   await deps.slots.withDatesLocked([slot.date], (session) => session.setStaff(slotId, staff));
   return { ok: true };
 }
+
+// ---- Week and month views: one row per person, one column per day.
+
+export interface GridPerson {
+  producerId: string;
+  name: string;
+  position: string;
+  squad: string;
+}
+
+export interface DayTotals {
+  live: number; // people on a live shift
+  office: number;
+  away: number; // off or on leave
+  lives: number;
+  notReady: number;
+}
+
+export interface StaffGridData {
+  view: "week" | "month";
+  date: string;
+  from: string;
+  to: string;
+  today: string;
+  days: string[];
+  people: GridPerson[];
+  // producerId → date → shift code, and how many lives they staff that day
+  codes: Record<string, Record<string, string>>;
+  assigned: Record<string, Record<string, number>>;
+  totals: Record<string, DayTotals>;
+  canEdit: boolean;
+}
+
+const POSITION_RANK: Record<string, number> = {
+  "Producer Team Lead": 0,
+  "Senior Producer": 1,
+  Producer: 2,
+  "Jr. Producer": 3,
+};
+
+function daysBetween(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+export async function getStaffGrid(
+  deps: { shifts: ShiftRepository; slots: SlotRepository; producers: ProducerRepository; clock: Clock },
+  user: SessionUser,
+  query: { view: "week" | "month"; date: string | null; from: string; to: string },
+): Promise<StaffGridData> {
+  const { from, to } = query;
+  const [shifts, slots, producers] = await Promise.all([
+    deps.shifts.listInRange(from, to),
+    deps.slots.list({ from, to }),
+    deps.producers.listAll(),
+  ]);
+  const days = daysBetween(from, to);
+
+  const codes: StaffGridData["codes"] = {};
+  const assigned: StaffGridData["assigned"] = {};
+  const totals: Record<string, DayTotals> = Object.fromEntries(
+    days.map((d) => [d, { live: 0, office: 0, away: 0, lives: 0, notReady: 0 }]),
+  );
+  const involved = new Set<string>();
+
+  for (const s of shifts) {
+    involved.add(s.producerId);
+    (codes[s.producerId] ??= {})[s.date] = s.code || (s.kind === "live" ? "•" : s.kind);
+    const t = totals[s.date];
+    if (s.kind === "live") t.live++;
+    else if (s.kind === "office") t.office++;
+    else t.away++;
+  }
+  for (const slot of slots) {
+    const t = totals[slot.date];
+    t.lives++;
+    if (!isStaffReady(slot)) t.notReady++;
+    for (const id of new Set([slot.producerId, slot.admin1Id, slot.admin2Id])) {
+      if (!id) continue;
+      involved.add(id);
+      const mine = (assigned[id] ??= {});
+      mine[slot.date] = (mine[slot.date] ?? 0) + 1;
+    }
+  }
+
+  const people = producers
+    .filter((p) => involved.has(p.id))
+    .map((p) => ({ producerId: p.id, name: p.name, position: p.position, squad: p.squad }))
+    .sort(
+      (a, b) =>
+        (POSITION_RANK[a.position] ?? 9) - (POSITION_RANK[b.position] ?? 9) ||
+        a.squad.localeCompare(b.squad) ||
+        a.name.localeCompare(b.name),
+    );
+
+  return {
+    view: query.view,
+    date: query.date ?? deps.clock.today(),
+    from,
+    to,
+    today: deps.clock.today(),
+    days,
+    people,
+    codes,
+    assigned,
+    totals,
+    canEdit: user.role === "OPERATION" || user.role === "MANAGER",
+  };
+}

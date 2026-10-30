@@ -1,31 +1,19 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ShiftItem, SlotListItem } from "@/application/ports";
 import type { StaffShiftPageData } from "@/application/shifts/staff-shift";
 import { SHIFT_CODES } from "@/domain/shift-sheet";
 import { isStaffReady } from "@/domain/slot-rules";
-import { fromIsoDate, fromLiveMinutes, toIsoDate } from "@/domain/time";
+import { fromLiveMinutes } from "@/domain/time";
 import { dayLabel, timeRange } from "../../format";
-import { ImportDrawer } from "./import-drawer";
 import { StaffRow } from "./staff-row";
+import { StaffToolbar } from "./staff-toolbar";
 
 // Order the shift groups appear in, morning to evening, office last.
 const GROUP_ORDER = ["2", "4", "3", "OF"];
 
-function shiftDay(date: string, n: number) {
-  const d = fromIsoDate(date);
-  d.setUTCDate(d.getUTCDate() + n);
-  return toIsoDate(d);
-}
-
 export function StaffShiftView({ data }: { data: StaffShiftPageData }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [importing, setImporting] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   const s = data.summary;
@@ -42,36 +30,7 @@ export function StaffShiftView({ data }: { data: StaffShiftPageData }) {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href={`${pathname}?date=${shiftDay(data.date, -1)}`} aria-label="วันก่อน" className="rounded-md border border-line-strong p-1.5 text-soft hover:bg-field">
-            <ChevronLeft size={14} />
-          </Link>
-          <Link href={`${pathname}?date=${shiftDay(data.date, 1)}`} aria-label="วันถัดไป" className="rounded-md border border-line-strong p-1.5 text-soft hover:bg-field">
-            <ChevronRight size={14} />
-          </Link>
-          <Link href={pathname} className="rounded-md border border-line-strong px-2.5 py-1 text-xs text-soft hover:bg-field">
-            วันนี้
-          </Link>
-          <input
-            type="date"
-            value={data.date}
-            onChange={(e) => e.target.value && router.replace(`${pathname}?date=${e.target.value}`)}
-            aria-label="เลือกวัน"
-            className="rounded-md border border-line-strong bg-field px-2 py-1 text-xs text-ink outline-none"
-          />
-          <span className="text-sm font-semibold">{dayLabel(data.date)}</span>
-        </div>
-        {data.canEdit && (
-          <button
-            type="button"
-            onClick={() => setImporting(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
-          >
-            <FileSpreadsheet size={14} /> นำเข้ากะจาก Google Sheet
-          </button>
-        )}
-      </section>
+      <StaffToolbar view="day" date={data.date} title={dayLabel(data.date)} canEdit={data.canEdit} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Card label="PD เข้ากะไลฟ์" value={s.onShift} />
@@ -157,7 +116,6 @@ export function StaffShiftView({ data }: { data: StaffShiftPageData }) {
         )}
       </section>
 
-      {importing && <ImportDrawer defaultMonth={data.date.slice(0, 7)} onClose={() => setImporting(false)} />}
     </div>
   );
 }
