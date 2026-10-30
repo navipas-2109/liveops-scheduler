@@ -2,6 +2,7 @@
 
 import {
   Building2,
+  CalendarDays,
   CalendarPlus,
   Radio,
   CreditCard,
@@ -30,6 +31,7 @@ import type { NavItem } from "../navigation";
 
 const ICONS: Record<PageId, LucideIcon> = {
   dashboard: LayoutDashboard,
+  schedule: CalendarDays,
   brandSlots: Tag,
   mcPlanning: Mic,
   staffShift: Wrench,

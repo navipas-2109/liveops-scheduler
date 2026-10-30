@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { rangeFor, weekStart } from "./date-range";
+import { rangeFor, weekStart } from "./get-schedule-page";
 
-describe("date ranges", () => {
+describe("schedule ranges", () => {
   it("weeks run Monday to Sunday", () => {
     expect(weekStart("2026-11-12")).toBe("2026-11-09"); // Thursday → Monday
     expect(weekStart("2026-11-15")).toBe("2026-11-09"); // Sunday → same week

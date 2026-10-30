@@ -11,8 +11,8 @@ import { fromIsoDate, toIsoDate } from "@/domain/time";
 import { dayLabel, monthLabel } from "../../format";
 import type { SlotFormValues } from "../brand-slots/actions";
 import { SlotDrawer } from "../brand-slots/slot-drawer";
-import { DayTimeline } from "../timeline/day-timeline";
-import { pdRows, roomColors, type TimelineRow } from "../timeline/timeline-shared";
+import { DayTimeline } from "../schedule/day-timeline";
+import { pdRows, roomColors, type TimelineRow } from "../schedule/schedule-shared";
 import { setBrandLockAction } from "./actions";
 
 function shiftDay(date: string, n: number) {
