@@ -101,8 +101,8 @@ async function seedUsers() {
     { email: "mc2@liveops.local", name: "Sari", role: "MC", mc: "Sari" },
     { email: "mc3@liveops.local", name: "Nanchu", role: "MC", mc: "Nanchu" },
     // Demo Producer logins, each tied to a Producer.
-    { email: "pd1@liveops.local", name: "Donut", role: "PD", producer: "Donut" },
-    { email: "pd2@liveops.local", name: "Arm", role: "PD", producer: "Arm" },
+    { email: "pd1@liveops.local", name: "First", role: "PD", producer: "First" },
+    { email: "pd2@liveops.local", name: "Dream Supakron", role: "PD", producer: "Dream Supakron" },
     { email: "pd3@liveops.local", name: "Zay", role: "PD", producer: "Zay" },
   ];
 
