@@ -6,6 +6,7 @@ export interface SessionUser {
   name: string;
   role: Role;
   mcId?: string | null; // set for MC logins
+  producerId?: string | null; // set for PD logins
 }
 
 // Returns the user to sign in, or null. The same null is returned for an
@@ -19,5 +20,5 @@ export async function login(
   const user = await deps.users.findCredentialsByEmail(email.trim().toLowerCase());
   if (!user) return null;
   if (!(await deps.passwords.verify(password, user.passwordHash))) return null;
-  return { userId: user.id, name: user.name, role: user.role, mcId: user.mcId };
+  return { userId: user.id, name: user.name, role: user.role, mcId: user.mcId, producerId: user.producerId };
 }

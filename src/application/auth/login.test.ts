@@ -7,7 +7,7 @@ const deps = {
   users: {
     findCredentialsByEmail: async (email: string) =>
       email === "planner@liveops.local"
-        ? { id: "u1", name: "Planner", role: "PLANNER" as const, mcId: null, passwordHash: hash }
+        ? { id: "u1", name: "Planner", role: "PLANNER" as const, mcId: null, producerId: null, passwordHash: hash }
         : null,
   },
   passwords: { verify: (p: string, h: string) => bcrypt.compare(p, h) },
@@ -20,6 +20,7 @@ describe("login", () => {
       name: "Planner",
       role: "PLANNER",
       mcId: null,
+      producerId: null,
     });
   });
 

@@ -89,7 +89,7 @@ async function seedUsers() {
   const brandNames = [...new Set(BRAND_PLATFORM_RAW.map((b) => b.brand))].sort();
   const aeBrandNames = [brandNames.slice(0, 16), brandNames.slice(16, 32), brandNames.slice(32)];
 
-  const users: { email: string; name: string; role: Role; brands?: string[]; mc?: string }[] = [
+  const users: { email: string; name: string; role: Role; brands?: string[]; mc?: string; producer?: string }[] = [
     { email: "manager@liveops.local", name: "Manager", role: "MANAGER" },
     { email: "planner@liveops.local", name: "Planner", role: "PLANNER" },
     { email: "operation@liveops.local", name: "Operation", role: "OPERATION" },
@@ -100,6 +100,10 @@ async function seedUsers() {
     { email: "mc1@liveops.local", name: "Boss", role: "MC", mc: "Boss" },
     { email: "mc2@liveops.local", name: "Sari", role: "MC", mc: "Sari" },
     { email: "mc3@liveops.local", name: "Nanchu", role: "MC", mc: "Nanchu" },
+    // Demo Producer logins, each tied to a Producer.
+    { email: "pd1@liveops.local", name: "Donut", role: "PD", producer: "Donut" },
+    { email: "pd2@liveops.local", name: "Arm", role: "PD", producer: "Arm" },
+    { email: "pd3@liveops.local", name: "Zay", role: "PD", producer: "Zay" },
   ];
 
   const existing = new Set(
@@ -112,9 +116,20 @@ async function seedUsers() {
     if (existing.has(u.email)) continue;
     const brands = allBrands.filter((b) => u.brands?.includes(b.brandName)).map((b) => ({ id: b.id }));
     const mc = u.mc ? await prisma.mc.findUnique({ where: { nickname: u.mc }, select: { id: true } }) : null;
-    if (u.mc && !mc) continue;
+    const producer = u.producer
+      ? await prisma.producer.findUnique({ where: { name: u.producer }, select: { id: true } })
+      : null;
+    if ((u.mc && !mc) || (u.producer && !producer)) continue;
     await prisma.user.create({
-      data: { email: u.email, name: u.name, role: u.role, passwordHash, mcId: mc?.id, brands: { connect: brands } },
+      data: {
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        passwordHash,
+        mcId: mc?.id,
+        producerId: producer?.id,
+        brands: { connect: brands },
+      },
     });
   }
 }

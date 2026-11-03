@@ -21,6 +21,7 @@ enum Role {
   OPERATION
   MANAGER
   MC
+  PD
 }
 
 enum RoomSize {
@@ -75,17 +76,20 @@ enum ApprovalStatus {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
   role         Role
   // Brands an AE manages; empty for other roles.
-  brands       Brand[]  @relation("UserBrands")
+  brands       Brand[]   @relation("UserBrands")
   // The MC this login belongs to (role MC only).
-  mcId         String?  @unique @map("mc_id")
-  mc           Mc?      @relation(fields: [mcId], references: [id])
-  createdAt    DateTime @default(now()) @map("created_at")
+  mcId         String?   @unique @map("mc_id")
+  mc           Mc?       @relation(fields: [mcId], references: [id])
+  // The Producer this login belongs to (role PD only).
+  producerId   String?   @unique @map("producer_id")
+  producer     Producer? @relation(fields: [producerId], references: [id])
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   aeSlots          Slot[]          @relation("SlotAe")
   plannerSlots     Slot[]          @relation("SlotPlanner")
@@ -150,11 +154,12 @@ model Producer {
   squad      String           @default("") // brands they usually cover
   team       String           @default("") // PD team, e.g. "M", "Tae", "Cartoon"
 
-  producerSlots Slot[]  @relation("SlotProducer")
-  admin1Slots   Slot[]  @relation("SlotAdmin1")
-  admin2Slots   Slot[]  @relation("SlotAdmin2")
+  producerSlots Slot[]    @relation("SlotProducer")
+  admin1Slots   Slot[]    @relation("SlotAdmin1")
+  admin2Slots   Slot[]    @relation("SlotAdmin2")
   shifts        Shift[]
   blocks        PdBlock[]
+  login         User?
 
   @@map("producers")
 }
@@ -164,7 +169,7 @@ model Brand {
   brandName String @map("brand_name")
   platform  String
 
-  aes   User[] @relation("UserBrands")
+  aes   User[]      @relation("UserBrands")
   slots Slot[]
   locks SlotLock[]
   plans BrandPlan[]
@@ -187,35 +192,35 @@ model BookingWindow {
 }
 
 model Slot {
-  id          String     @id @default(cuid())
-  date        DateTime   @db.Date
-  startMinute Int        @map("start_minute")
-  endMinute   Int        @map("end_minute")
-  roomId      String     @map("room_id")
-  room        Room       @relation(fields: [roomId], references: [id])
-  brandId     String     @map("brand_id")
-  brand       Brand      @relation(fields: [brandId], references: [id])
-  campaign    String     @default("")
-  requirement String     @default("")
-  aeId        String     @map("ae_id")
-  ae          User       @relation("SlotAe", fields: [aeId], references: [id])
-  mcId        String?    @map("mc_id")
-  mc          Mc?        @relation(fields: [mcId], references: [id])
+  id            String     @id @default(cuid())
+  date          DateTime   @db.Date
+  startMinute   Int        @map("start_minute")
+  endMinute     Int        @map("end_minute")
+  roomId        String     @map("room_id")
+  room          Room       @relation(fields: [roomId], references: [id])
+  brandId       String     @map("brand_id")
+  brand         Brand      @relation(fields: [brandId], references: [id])
+  campaign      String     @default("")
+  requirement   String     @default("")
+  aeId          String     @map("ae_id")
+  ae            User       @relation("SlotAe", fields: [aeId], references: [id])
+  mcId          String?    @map("mc_id")
+  mc            Mc?        @relation(fields: [mcId], references: [id])
   // When the MC ticked this live as confirmed; cleared when the MC changes.
   // When the Planner sent this MC assignment to the MC (MCs only see sent ones).
-  mcSentAt      DateTime? @map("mc_sent_at")
-  mcConfirmedAt DateTime? @map("mc_confirmed_at")
-  plannerId   String?    @map("planner_id")
-  planner     User?      @relation("SlotPlanner", fields: [plannerId], references: [id])
-  producerId  String?    @map("producer_id")
-  producer    Producer?  @relation("SlotProducer", fields: [producerId], references: [id])
-  admin1Id    String?    @map("admin1_id")
-  admin1      Producer?  @relation("SlotAdmin1", fields: [admin1Id], references: [id])
-  admin2Id    String?    @map("admin2_id")
-  admin2      Producer?  @relation("SlotAdmin2", fields: [admin2Id], references: [id])
-  status      SlotStatus @default(WAITING)
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  mcSentAt      DateTime?  @map("mc_sent_at")
+  mcConfirmedAt DateTime?  @map("mc_confirmed_at")
+  plannerId     String?    @map("planner_id")
+  planner       User?      @relation("SlotPlanner", fields: [plannerId], references: [id])
+  producerId    String?    @map("producer_id")
+  producer      Producer?  @relation("SlotProducer", fields: [producerId], references: [id])
+  admin1Id      String?    @map("admin1_id")
+  admin1        Producer?  @relation("SlotAdmin1", fields: [admin1Id], references: [id])
+  admin2Id      String?    @map("admin2_id")
+  admin2        Producer?  @relation("SlotAdmin2", fields: [admin2Id], references: [id])
+  status        SlotStatus @default(WAITING)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
 
   payment Payment?
 

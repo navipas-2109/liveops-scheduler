@@ -5,7 +5,7 @@ export const prismaUserRepository: UserRepository = {
   findCredentialsByEmail(email) {
     return prisma.user.findUnique({
       where: { email },
-      select: { id: true, name: true, role: true, mcId: true, passwordHash: true },
+      select: { id: true, name: true, role: true, mcId: true, producerId: true, passwordHash: true },
     });
   },
 };

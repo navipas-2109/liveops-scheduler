@@ -49,6 +49,10 @@ export interface SchedulePageData {
   // Producer filters: lives whose PD (1 or 2) is in this team / squad.
   team: string | null;
   squad: string | null;
+  producerId: string | null; // one Producer's lives only
+  ownProducerId: string | null; // set for a PD login
+  liveCount: number;
+  liveMinutes: number;
   teams: string[];
   squads: string[];
   producers: Producer[];
@@ -97,6 +101,8 @@ export async function getSchedulePage(
     platform?: string | null;
     team?: string | null;
     squad?: string | null;
+    // null = PD's own lives for a PD login, everyone otherwise; "all" = everyone.
+    producerId?: string | null;
   },
 ): Promise<SchedulePageData> {
   const today = deps.clock.today();
@@ -120,10 +126,15 @@ export async function getSchedulePage(
   ]);
   const team = query.team || null;
   const squad = query.squad || null;
+  const ownProducerId = user.role === "PD" ? (user.producerId ?? null) : null;
+  const wanted = query.producerId === "all" ? null : (query.producerId ?? ownProducerId);
+  const producerId = wanted && producers.some((p) => p.id === wanted) ? wanted : null;
   const inFilter = new Set(
-    producers.filter((p) => (!team || p.team === team) && (!squad || p.squad === squad)).map((p) => p.id),
+    producers
+      .filter((p) => (!team || p.team === team) && (!squad || p.squad === squad) && (!producerId || p.id === producerId))
+      .map((p) => p.id),
   );
-  const filtering = !!(team || squad);
+  const filtering = !!(team || squad || producerId);
   const slots = filtering
     ? allSlots.filter((s) => (s.producerId && inFilter.has(s.producerId)) || (s.admin1Id && inFilter.has(s.admin1Id)))
     : allSlots;
@@ -131,6 +142,10 @@ export async function getSchedulePage(
   const pdFilters = {
     team,
     squad,
+    producerId,
+    ownProducerId,
+    liveCount: slots.length,
+    liveMinutes: slots.reduce((sum, s) => sum + s.endMinute - s.startMinute, 0),
     teams: [...new Set(producers.map((p) => p.team).filter(Boolean))].sort(),
     squads: [...new Set(producers.map((p) => p.squad).filter(Boolean))].sort(),
     producers,

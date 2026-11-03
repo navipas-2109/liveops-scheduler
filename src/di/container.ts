@@ -119,6 +119,7 @@ export const services = {
       platform?: string | null;
       team?: string | null;
       squad?: string | null;
+      producerId?: string | null;
     },
   ) => getSchedulePage(deps, user, query),
   getMcPlanningPage: (

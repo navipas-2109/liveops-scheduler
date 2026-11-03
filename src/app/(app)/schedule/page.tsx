@@ -24,6 +24,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Sea
     platform: one(params.channel),
     team: one(params.team),
     squad: one(params.squad),
+    producerId: one(params.pd),
   });
   return <ScheduleScreen data={data} role={user.role} />;
 }

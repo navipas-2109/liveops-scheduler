@@ -1,6 +1,6 @@
 // Who may open which page, and where each role lands after logging in.
 
-export type Role = "AE" | "PLANNER" | "OPERATION" | "MANAGER" | "MC";
+export type Role = "AE" | "PLANNER" | "OPERATION" | "MANAGER" | "MC" | "PD";
 
 export const ROLE_LABEL: Record<Role, string> = {
   AE: "AE",
@@ -8,6 +8,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   OPERATION: "Operation",
   MANAGER: "Manager",
   MC: "MC",
+  PD: "Producer",
 };
 
 export type PageId =
@@ -30,7 +31,8 @@ const ALL_ROLES: Role[] = ["AE", "PLANNER", "OPERATION", "MANAGER"];
 
 export const PAGE_ACCESS: Record<PageId, Role[]> = {
   dashboard: ["MANAGER"],
-  schedule: ALL_ROLES,
+  // Producers sign in to see their own lives here.
+  schedule: [...ALL_ROLES, "PD"],
   brandSlots: ["AE", "MANAGER"],
   mcPlanning: ["PLANNER", "MANAGER"],
   staffShift: ["OPERATION", "PLANNER", "MANAGER"],
@@ -50,6 +52,7 @@ export const HOME_PAGE: Record<Role, PageId> = {
   OPERATION: "staffShift",
   MANAGER: "dashboard",
   MC: "mcSheet",
+  PD: "schedule",
 };
 
 export function canAccess(role: Role, page: PageId): boolean {

@@ -12,6 +12,7 @@ export interface UserCredentials {
   name: string;
   role: Role;
   mcId: string | null;
+  producerId: string | null;
   passwordHash: string;
 }
 

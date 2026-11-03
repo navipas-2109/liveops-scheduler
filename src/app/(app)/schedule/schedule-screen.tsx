@@ -9,6 +9,7 @@ import type { SchedulePageData, ScheduleView } from "@/application/slots/get-sch
 import type { Role } from "@/domain/roles";
 import { fromIsoDate, toIsoDate } from "@/domain/time";
 import { dayLabel, monthLabel, shortDateLabel, STATUS_META, STATUS_ORDER } from "../../format";
+import { SearchSelect } from "../search-select";
 import { DayTimeline } from "./day-timeline";
 import { MonthGrid } from "./month-grid";
 import { pdRows, roomColors, type TimelineRow } from "./schedule-shared";
@@ -63,7 +64,11 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
     }),
   );
   const visibleRows = byPd ? pdRows(data.slots, data.shifts) : roomRows;
-  const filtering = !!(data.brandName || data.platform || data.team || data.squad);
+  const filtering = !!(data.brandName || data.platform || data.team || data.squad || data.producerId);
+  const isPd = !!data.ownProducerId;
+  const pdName = data.producers.find((p) => p.id === data.producerId)?.name;
+  // A PD login starts on their own lives; "all" shows everyone.
+  const pickPd = (id: string) => go({ pd: id || (isPd ? "all" : null) });
 
   const title =
     data.view === "day"
@@ -149,6 +154,26 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
               </option>
             ))}
           </select>
+          <div className="w-52">
+            <SearchSelect
+              value={data.producerId ?? ""}
+              options={data.producers.map((p) => ({
+                value: p.id,
+                label: p.name,
+                hint: [p.team && `Team ${p.team}`, p.squad].filter(Boolean).join(" · "),
+              }))}
+              onChange={pickPd}
+              placeholder="ทุก Producer"
+              emptyLabel="ทุก Producer"
+              ariaLabel="กรองตาม Producer"
+              className="w-full rounded-md border border-line-strong bg-field px-2 py-1.5 text-xs text-ink outline-none"
+            />
+          </div>
+          {isPd && data.producerId !== data.ownProducerId && (
+            <button type="button" onClick={() => pickPd(data.ownProducerId!)} className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-white">
+              ดูของฉัน
+            </button>
+          )}
           <select value={data.team ?? ""} onChange={(e) => go({ team: e.target.value || null })} aria-label="กรองตาม Team" className={select}>
             <option value="">ทุก Team</option>
             {data.teams.map((t) => (
@@ -164,12 +189,25 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
             ))}
           </select>
           {(filtering || data.roomId) && (
-            <Link href={href({ brand: null, channel: null, room: null, team: null, squad: null })} className="text-[11px] text-accent hover:underline">
+            <Link
+              href={href({ brand: null, channel: null, room: null, team: null, squad: null, pd: isPd ? "all" : null })}
+              className="text-[11px] text-accent hover:underline"
+            >
               ล้างตัวกรอง
             </Link>
           )}
         </div>
       </section>
+
+      {pdName && (
+        <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs">
+          <span className="font-semibold">ตารางของ {pdName}</span>
+          <span className="text-soft">
+            {" "}
+            · {title} · {data.liveCount} ไลฟ์ · {Math.round((data.liveMinutes / 60) * 10) / 10} ชั่วโมง
+          </span>
+        </p>
+      )}
 
       <div className={`grid grid-cols-[minmax(0,1fr)] gap-4 ${selected ? "xl:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
         <div className="min-w-0">
