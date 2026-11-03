@@ -2,14 +2,18 @@
 // and confirming (locking) a brand's lives for a month.
 
 import type { SessionUser } from "../auth/login";
+import { CHECK_MESSAGE } from "@/domain/brand-check";
 import { canChangeLocked } from "@/domain/slot-lock";
+import { buildRows } from "../brand-check/brand-check";
 import type {
+  BrandPlanRepository,
   BrandRepository,
   ProducerRepository,
   Room,
   RoomInput,
   RoomRepository,
   SlotLockRepository,
+  SlotRepository,
 } from "../ports";
 
 type Result<T = void> = { ok: true; value: T } | { ok: false; error: string };
@@ -84,9 +88,15 @@ export async function deleteProducer(
 }
 
 // Anyone who books lives may confirm a brand's month (AEs only their own
-// brands); only Planners unlock.
+// brands) once its hours match the plan and a Planner approved; only
+// Planners unlock.
 export async function setBrandLock(
-  deps: { locks: SlotLockRepository; brands: BrandRepository },
+  deps: {
+    locks: SlotLockRepository;
+    brands: BrandRepository;
+    slots: SlotRepository;
+    plans: BrandPlanRepository;
+  },
   user: SessionUser,
   brandId: string,
   month: string,
@@ -98,6 +108,9 @@ export async function setBrandLock(
       const mine = await deps.brands.listForAe(user.userId);
       if (!mine.some((b) => b.id === brandId)) return NO_RIGHTS;
     } else if (!EDITORS.includes(user.role)) return NO_RIGHTS;
+    const row = (await buildRows(deps, user, month)).find((r) => r.brandId === brandId);
+    if (!row) return NO_RIGHTS;
+    if (row.status !== "ready" && row.status !== "confirmed") return { ok: false, error: CHECK_MESSAGE[row.status] };
     await deps.locks.lock(brandId, month, user.userId);
   } else {
     if (!canChangeLocked(user.role)) return { ok: false, error: "ปลดล็อกได้เฉพาะ Planner" };

@@ -93,6 +93,7 @@ model User {
   bookingWindows   BookingWindow[]
   recordedPayments Payment[]       @relation("PaymentRecordedBy")
   slotLocks        SlotLock[]
+  planApprovals    BrandPlan[]
   approvedPayments Payment[]       @relation("PaymentApprovedBy")
 
   @@map("users")
@@ -149,6 +150,7 @@ model Brand {
   aes   User[] @relation("UserBrands")
   slots Slot[]
   locks SlotLock[]
+  plans BrandPlan[]
 
   @@unique([brandName, platform])
   @@map("brands")
@@ -254,4 +256,22 @@ model SlotLock {
 
   @@unique([brandId, month])
   @@map("slot_locks")
+}
+
+// Hours a brand should go live in a month, set by the Planner. The AE can
+// confirm (lock) the month once the booked hours match and a Planner approved.
+model BrandPlan {
+  id           String    @id @default(cuid())
+  brandId      String    @map("brand_id")
+  brand        Brand     @relation(fields: [brandId], references: [id])
+  month        String // "2026-11"
+  planMinutes  Int       @map("plan_minutes")
+  remark       String    @default("")
+  approvedById String?   @map("approved_by")
+  approvedBy   User?     @relation(fields: [approvedById], references: [id])
+  approvedAt   DateTime? @map("approved_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@unique([brandId, month])
+  @@map("brand_plans")
 }

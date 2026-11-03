@@ -17,6 +17,7 @@ function fakeDeps(today = "2026-10-29") {
   const rows: SlotRecord[] = [];
   const sent: { channels: NotifyChannel[]; text: string }[] = [];
   const locked = new Set<string>();
+  const cleared: string[] = [];
   let seq = 0;
   const session: SlotWriteSession = {
     listOnDate: async (date) => rows.filter((r) => r.date === date).map((r) => ({ ...r })),
@@ -93,6 +94,12 @@ function fakeDeps(today = "2026-10-29") {
       lock: async (brandId, month) => void locked.add(`${brandId}|${month}`),
       unlock: async (brandId, month) => void locked.delete(`${brandId}|${month}`),
     },
+    plans: {
+      listForMonth: async () => [],
+      find: async () => null,
+      setPlan: async () => {},
+      setApproved: async (brandId, month, userId) => void cleared.push(`${brandId}|${month}|${userId}`),
+    },
     producers: {
       listAll: async () =>
         ["pd1", "pd2", "pd3"].map((id) => ({ id, name: id, position: "Producer", employeeId: null, squad: "" })),
@@ -104,7 +111,7 @@ function fakeDeps(today = "2026-10-29") {
     notifier: { notify: async (channels, text) => void sent.push({ channels, text }) },
     clock: { today: () => today, nowMinute: () => 12 * 60 },
   };
-  return { deps, rows, sent, locked };
+  return { deps, rows, sent, locked, cleared };
 }
 
 function input(overrides: Partial<SlotInput> = {}): SlotInput {
@@ -278,5 +285,17 @@ describe("two PDs on one live", () => {
     const r2 = await saveSlot(env2.deps, operation, input({ producerId: "pd1" }));
     env2.locked.add("puma|2026-11");
     expect((await joinSlot(env2.deps, operation, r2.ok ? r2.slot.id : "", "pd2")).ok).toBe(false); // locked
+  });
+});
+
+describe("Planner approval", () => {
+  it("is cleared when a brand's lives change", async () => {
+    const env = fakeDeps();
+    const r = await saveSlot(env.deps, manager, input());
+    expect(env.cleared).toEqual(["puma|2026-11|null"]);
+    await saveSlot(env.deps, manager, input({ brandId: "cosrx" }), r.ok ? r.slot.id : "");
+    expect(env.cleared.slice(1)).toEqual(["cosrx|2026-11|null", "puma|2026-11|null"]);
+    await deleteSlot(env.deps, manager, r.ok ? r.slot.id : "");
+    expect(env.cleared.at(-1)).toBe("cosrx|2026-11|null");
   });
 });

@@ -13,6 +13,7 @@ import {
   saveRoom,
   setBrandLock,
 } from "@/application/catalog/manage";
+import { approvePlan, confirmReady, getBrandCheckPage, setPlan } from "@/application/brand-check/brand-check";
 import { getInputPage } from "@/application/slots/get-input-page";
 import { advancePayment } from "@/application/payments/approve-payment";
 import { getPaymentPage, type PaymentTab } from "@/application/payments/get-payment-page";
@@ -47,6 +48,7 @@ import {
   prismaMcRepository,
   prismaRoomRepository,
   prismaSlotLockRepository,
+  prismaBrandPlanRepository,
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
 import {
   prismaProducerRepository,
@@ -72,6 +74,7 @@ const deps = {
   shifts: prismaShiftRepository,
   producers: prismaProducerRepository,
   locks: prismaSlotLockRepository,
+  plans: prismaBrandPlanRepository,
   passwords: bcryptHasher,
   notifier: larkNotifier,
   clock,
@@ -123,6 +126,12 @@ export const services = {
   getInputPage: (user: SessionUser, date: string | null) => getInputPage(deps, user, date),
   getMcSheetPage: (user: SessionUser, month: string) => getMcSheetPage(deps, user, month),
   joinSlot: (user: SessionUser, slotId: string, producerId: string) => joinSlot(deps, user, slotId, producerId),
+  getBrandCheckPage: (user: SessionUser, month: string) => getBrandCheckPage(deps, user, month),
+  setPlan: (user: SessionUser, brandId: string, month: string, hours: number, remark: string) =>
+    setPlan(deps, user, brandId, month, hours, remark),
+  approvePlan: (user: SessionUser, brandId: string, month: string, approve: boolean) =>
+    approvePlan(deps, user, brandId, month, approve),
+  confirmReady: (user: SessionUser, month: string) => confirmReady(deps, user, month),
   listRooms: () => deps.rooms.listAll(),
   listBrands: () => deps.brands.listAll(),
   saveRoom: (user: SessionUser, input: RoomInput, id?: string) => saveRoom(deps, user, input, id),

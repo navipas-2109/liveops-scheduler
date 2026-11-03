@@ -5,6 +5,7 @@ import { rangesOverlap, fromLiveMinutes, isValidIsoDate, LIVE_DAY_END, LIVE_DAY_
 import type {
   BookingWindowRepository,
   Brand,
+  BrandPlanRepository,
   BrandRepository,
   Clock,
   Notifier,
@@ -37,6 +38,7 @@ export interface SaveSlotDeps {
   rooms: RoomRepository;
   bookingWindows: BookingWindowRepository;
   locks: SlotLockRepository;
+  plans: BrandPlanRepository;
   producers: ProducerRepository;
   notifier: Notifier;
   clock: Clock;
@@ -133,6 +135,9 @@ export async function saveSlot(
   const pdError = await checkPds(deps, input);
   if (pdError) return { ok: false, error: pdError };
 
+  // Brand-months whose approval this change invalidates (noted before saving).
+  const touched = new Set([`${input.brandId}|${monthOf(input.date)}`]);
+  if (existing) touched.add(`${existing.brandId}|${monthOf(existing.date)}`);
   const dates = existing && existing.date !== input.date ? [input.date, existing.date] : [input.date];
   const result = await deps.slots.withDatesLocked(dates, async (session) => {
     const sameDay = await session.listOnDate(input.date);
@@ -167,6 +172,11 @@ export async function saveSlot(
   });
 
   if (!result.ok) return result;
+  // The Planner approved the old set of lives; changes need a new approval.
+  for (const key of touched) {
+    const [brandId, month] = key.split("|");
+    await deps.plans.setApproved(brandId, month, null);
+  }
   await notifyAfterSave(deps.notifier, user, brand, room, result.slot, !existing, result.newConflicts);
   return { ok: true, slot: result.slot };
 }

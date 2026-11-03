@@ -2,6 +2,8 @@ import type { Mc as DbMc } from "@prisma/client";
 import type { Room as DbRoom } from "@prisma/client";
 import type {
   BookingWindowRepository,
+  BrandPlan,
+  BrandPlanRepository,
   BrandRepository,
   Mc,
   McRepository,
@@ -29,6 +31,7 @@ export const prismaBrandRepository: BrandRepository = {
   async remove(id) {
     await prisma.$transaction([
       prisma.slotLock.deleteMany({ where: { brandId: id } }),
+      prisma.brandPlan.deleteMany({ where: { brandId: id } }),
       prisma.brand.delete({ where: { id } }),
     ]);
   },
@@ -110,6 +113,53 @@ export const prismaSlotLockRepository: SlotLockRepository = {
     await prisma.slotLock.deleteMany({ where: { brandId, month } });
   },
 };
+
+export const prismaBrandPlanRepository: BrandPlanRepository = {
+  async listForMonth(month) {
+    const rows = await prisma.brandPlan.findMany({ where: { month }, include: { approvedBy: { select: { name: true } } } });
+    return rows.map(toPlan);
+  },
+  async find(brandId, month) {
+    const row = await prisma.brandPlan.findUnique({
+      where: { brandId_month: { brandId, month } },
+      include: { approvedBy: { select: { name: true } } },
+    });
+    return row ? toPlan(row) : null;
+  },
+  async setPlan(brandId, month, planMinutes, remark) {
+    const current = await prisma.brandPlan.findUnique({ where: { brandId_month: { brandId, month } } });
+    const keepApproval = current?.planMinutes === planMinutes;
+    await prisma.brandPlan.upsert({
+      where: { brandId_month: { brandId, month } },
+      create: { brandId, month, planMinutes, remark },
+      update: { planMinutes, remark, ...(keepApproval ? {} : { approvedById: null, approvedAt: null }) },
+    });
+  },
+  async setApproved(brandId, month, userId) {
+    await prisma.brandPlan.updateMany({
+      where: { brandId, month },
+      data: { approvedById: userId, approvedAt: userId ? new Date() : null },
+    });
+  },
+};
+
+function toPlan(p: {
+  brandId: string;
+  month: string;
+  planMinutes: number;
+  remark: string;
+  approvedAt: Date | null;
+  approvedBy: { name: string } | null;
+}): BrandPlan {
+  return {
+    brandId: p.brandId,
+    month: p.month,
+    planMinutes: p.planMinutes,
+    remark: p.remark,
+    approvedByName: p.approvedBy?.name ?? null,
+    approvedAt: p.approvedAt?.toISOString() ?? null,
+  };
+}
 
 export const prismaBookingWindowRepository: BookingWindowRepository = {
   async listAll() {

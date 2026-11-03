@@ -6,6 +6,7 @@ import type { Brand, Producer, Room } from "@/application/ports";
 import type { RoomClash } from "@/application/slots/check-room";
 import { fromLiveMinutes } from "@/domain/time";
 import { TIME_CHOICES, timeRange } from "../../format";
+import { SearchSelect, type SearchOption } from "../search-select";
 import { checkRoomAction, deleteSlotAction, joinSlotAction, saveSlotAction, type SlotFormValues } from "./actions";
 
 const CAMPAIGNS = ["Regular Live", "Flash Sale", "Brand Day", "Mega Campaign", "New Launch", "Collab Special"];
@@ -37,6 +38,12 @@ export function SlotDrawer({ initial, brands, rooms, producers, onClose }: Props
   const brandNames = [...new Set(brands.map((b) => b.brandName))];
   const platforms = brands.filter((b) => b.brandName === brandName);
   const set = (changes: Partial<SlotFormValues>) => setValues((v) => ({ ...v, ...changes }));
+  // PDs are found by name or by the brand squad they look after.
+  const pdOptions: SearchOption[] = (producers ?? []).map((p) => ({
+    value: p.id,
+    label: p.name,
+    hint: [p.squad, p.position].filter(Boolean).join(" · "),
+  }));
 
   function pickBrand(name: string) {
     setBrandName(name);
@@ -125,12 +132,14 @@ export function SlotDrawer({ initial, brands, rooms, producers, onClose }: Props
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1.5">
               <span className="text-[11px] text-soft">แบรนด์</span>
-              <select value={brandName} onChange={(e) => pickBrand(e.target.value)} className={field} required>
-                <option value="">เลือกแบรนด์</option>
-                {brandNames.map((b) => (
-                  <option key={b}>{b}</option>
-                ))}
-              </select>
+              <SearchSelect
+                value={brandName}
+                options={brandNames.map((b) => ({ value: b, label: b }))}
+                onChange={pickBrand}
+                placeholder="เลือกแบรนด์"
+                ariaLabel="แบรนด์"
+                className={field}
+              />
             </label>
             <label className="grid gap-1.5">
               <span className="text-[11px] text-soft">แพลตฟอร์ม</span>
@@ -155,38 +164,28 @@ export function SlotDrawer({ initial, brands, rooms, producers, onClose }: Props
             <div className="grid grid-cols-2 gap-3">
               <label className="grid gap-1.5">
                 <span className="text-[11px] text-soft">PD คนที่ 1</span>
-                <select
+                <SearchSelect
                   value={values.producerId ?? ""}
-                  onChange={(e) => set({ producerId: e.target.value || null })}
+                  options={pdOptions}
+                  onChange={(v) => set({ producerId: v || null, ...(v && v === values.secondPdId ? { secondPdId: null } : {}) })}
+                  placeholder="— ยังไม่ระบุ —"
+                  emptyLabel="— ยังไม่ระบุ —"
+                  ariaLabel="PD คนที่ 1"
                   className={field}
-                >
-                  <option value="">— ยังไม่ระบุ —</option>
-                  {producers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                      {p.squad && ` · ${p.squad}`}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label className="grid gap-1.5">
                 <span className="text-[11px] text-soft">PD คนที่ 2 (ถ้ามี)</span>
-                <select
+                <SearchSelect
                   value={values.secondPdId ?? ""}
-                  onChange={(e) => set({ secondPdId: e.target.value || null })}
+                  options={pdOptions.filter((o) => o.value !== values.producerId)}
+                  onChange={(v) => set({ secondPdId: v || null })}
+                  placeholder="— ไม่มี —"
+                  emptyLabel="— ไม่มี —"
                   disabled={!values.producerId}
+                  ariaLabel="PD คนที่ 2"
                   className={field}
-                >
-                  <option value="">— ไม่มี —</option>
-                  {producers
-                    .filter((p) => p.id !== values.producerId)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                        {p.squad && ` · ${p.squad}`}
-                      </option>
-                    ))}
-                </select>
+                />
               </label>
             </div>
           )}

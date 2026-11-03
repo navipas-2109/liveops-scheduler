@@ -13,6 +13,8 @@ import type { SlotFormValues } from "../brand-slots/actions";
 import { SlotDrawer } from "../brand-slots/slot-drawer";
 import { DayTimeline } from "../schedule/day-timeline";
 import { pdRows, roomColors, type TimelineRow } from "../schedule/schedule-shared";
+import { confirmReadyAction } from "../brand-check/actions";
+import { CheckBadge, hrs } from "../brand-check/check-status";
 import { setBrandLockAction } from "./actions";
 
 function shiftDay(date: string, n: number) {
@@ -71,16 +73,20 @@ export function InputScreen({ data }: { data: InputPageData }) {
     });
   }
 
-  async function toggleLock(brandId: string, name: string, lock: boolean) {
-    const question = lock
-      ? `ยืนยันและล็อกสล็อตของ ${name} ทั้งเดือน ${monthLabel(data.month)}?\nหลังล็อก แก้ไขได้เฉพาะ Planner`
-      : `ปลดล็อก ${name} เดือน ${monthLabel(data.month)}?`;
-    if (!window.confirm(question)) return;
-    const r = await setBrandLockAction(brandId, data.month, lock);
+  async function unlock(brandId: string, name: string) {
+    if (!window.confirm(`ปลดล็อก ${name} เดือน ${monthLabel(data.month)}?`)) return;
+    const r = await setBrandLockAction(brandId, data.month, false);
     setNotice(r.ok ? null : r.error);
   }
 
-  const lockedCount = data.brandMonth.filter((b) => b.lock).length;
+  const ready = data.checks.filter((c) => c.status === "ready");
+  async function confirmAll() {
+    const names = ready.map((c) => `${c.brandName} (${c.platform})`).join("\n");
+    if (!window.confirm(`ยืนยันและล็อกสล็อต ${ready.length} แบรนด์ เดือน ${monthLabel(data.month)}?\n\n${names}\n\nหลังยืนยัน แก้ไขได้เฉพาะ Planner`)) return;
+    const r = await confirmReadyAction(data.month);
+    setNotice(r.ok ? null : r.error);
+  }
+  const lockedCount = data.checks.filter((c) => c.lock).length;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
@@ -149,38 +155,45 @@ export function InputScreen({ data }: { data: InputPageData }) {
           <div>
             <h2 className="text-sm font-semibold">ยืนยันสล็อต · {monthLabel(data.month)}</h2>
             <p className="text-[11px] text-muted">
-              ล็อกแล้ว {lockedCount}/{data.brandMonth.length} แบรนด์ · หลังล็อก แก้ไขได้เฉพาะ Planner
+              ยืนยันแล้ว {lockedCount}/{data.checks.length} แบรนด์ · ยืนยันได้เมื่อชั่วโมงครบตาม Plan และ Planner Approve แล้ว
             </p>
           </div>
-          {data.brandMonth.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-line py-6 text-center text-xs text-muted">ยังไม่มีสล็อตในเดือนนี้</p>
+          <button
+            type="button"
+            onClick={confirmAll}
+            disabled={ready.length === 0}
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Lock size={13} /> ยืนยันสล็อตทั้งหมดที่พร้อม ({ready.length})
+          </button>
+          <Link href={`/brand-check?month=${data.month}`} className="text-center text-[11px] text-accent hover:underline">
+            ดูรายละเอียดชั่วโมง / Plan ใน Brand Slot Check →
+          </Link>
+          {data.checks.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-line py-6 text-center text-xs text-muted">ยังไม่มี Plan หรือสล็อตในเดือนนี้</p>
           ) : (
-            <ul className="grid max-h-[560px] gap-1.5 overflow-y-auto pr-1">
-              {data.brandMonth.map((b) => {
-                const total = Object.values(b.counts).reduce((a, c) => a + (c ?? 0), 0);
-                const name = `${b.brandName} (${b.platform})`;
+            <ul className="grid max-h-[520px] gap-1.5 overflow-y-auto pr-1">
+              {data.checks.map((c) => {
+                const name = `${c.brandName} (${c.platform})`;
                 return (
-                  <li key={b.brandId} className="flex items-center justify-between gap-2 rounded-lg bg-field px-3 py-2 text-xs">
+                  <li key={c.brandId} className="flex items-center justify-between gap-2 rounded-lg bg-field px-3 py-2 text-xs">
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">
-                        {b.lock && "🔒 "}
-                        {b.brandName} <span className="font-normal text-muted">({b.platform})</span>
+                        {c.brandName} <span className="font-normal text-muted">({c.platform})</span>
                       </span>
-                      <span className="block text-[10px] text-muted">
-                        {total} สล็อต{b.lock && ` · ล็อกโดย ${b.lock.lockedByName}`}
+                      <span className="block text-[10px] tabular-nums text-muted">
+                        ลงแล้ว {hrs(c.inputMinutes)} / Plan {c.planMinutes === null ? "—" : hrs(c.planMinutes)} ชม.
+                        {c.lock && ` · โดย ${c.lock.lockedByName}`}
                       </span>
                     </span>
-                    {b.lock ? (
-                      data.canChangeLocked && (
-                        <button type="button" onClick={() => toggleLock(b.brandId, name, false)} className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] text-soft hover:bg-card">
-                          <LockOpen size={12} /> ปลดล็อก
+                    <span className="flex shrink-0 items-center gap-1">
+                      <CheckBadge status={c.status} />
+                      {c.lock && data.canChangeLocked && (
+                        <button type="button" onClick={() => unlock(c.brandId, name)} aria-label={`ปลดล็อก ${name}`} className="rounded-md p-1 text-soft hover:bg-card">
+                          <LockOpen size={12} />
                         </button>
-                      )
-                    ) : (
-                      <button type="button" onClick={() => toggleLock(b.brandId, name, true)} className="flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-white hover:bg-primary-hover">
-                        <Lock size={12} /> ยืนยัน & ล็อก
-                      </button>
-                    )}
+                      )}
+                    </span>
                   </li>
                 );
               })}

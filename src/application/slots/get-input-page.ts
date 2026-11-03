@@ -3,7 +3,7 @@ import { canChangeLocked } from "@/domain/slot-lock";
 import type {
   Brand,
   BrandRepository,
-  BrandStatusCounts,
+  BrandPlanRepository,
   Clock,
   Producer,
   ProducerRepository,
@@ -11,12 +11,11 @@ import type {
   RoomRepository,
   ShiftItem,
   ShiftRepository,
-  SlotLock,
   SlotLockRepository,
   SlotListItem,
   SlotRepository,
 } from "../ports";
-import { monthRange } from "./get-brand-slot-page";
+import { buildRows, type BrandCheckRow } from "../brand-check/brand-check";
 
 export interface InputPageData {
   date: string;
@@ -28,8 +27,8 @@ export interface InputPageData {
   brands: Brand[];
   producers: Producer[];
   squads: string[];
-  // Brands with lives this month, and which of them are confirmed.
-  brandMonth: (BrandStatusCounts & { lock: SlotLock | null })[];
+  // Brands with a plan or lives this month: hours against plan and status.
+  checks: BrandCheckRow[];
   lockedBrandIds: string[];
   canChangeLocked: boolean;
 }
@@ -44,6 +43,7 @@ export async function getInputPage(
     brands: BrandRepository;
     producers: ProducerRepository;
     locks: SlotLockRepository;
+    plans: BrandPlanRepository;
     clock: Clock;
   },
   user: SessionUser,
@@ -52,18 +52,15 @@ export async function getInputPage(
   const today = deps.clock.today();
   const day = date ?? today;
   const month = day.slice(0, 7);
-  const { from, to } = monthRange(month);
-  const [shifts, slots, rooms, brands, producers, locks, brandCounts] = await Promise.all([
+  const [shifts, slots, rooms, brands, producers, locks, checks] = await Promise.all([
     deps.shifts.listInRange(day, day),
     deps.slots.list({ from: day, to: day }),
     deps.rooms.listAll(),
     user.role === "AE" ? deps.brands.listForAe(user.userId) : deps.brands.listAll(),
     deps.producers.listAll(),
     deps.locks.listForMonth(month),
-    deps.slots.countByBrand(from, to),
+    buildRows(deps, user, month),
   ]);
-  const lockOf = new Map(locks.map((l) => [l.brandId, l]));
-  const usable = new Set(brands.map((b) => b.id));
   return {
     date: day,
     today,
@@ -74,10 +71,8 @@ export async function getInputPage(
     brands,
     producers,
     squads: [...new Set(producers.map((p) => p.squad.trim()).filter(Boolean))].sort(),
-    // AEs only see and confirm their own brands.
-    brandMonth: brandCounts
-      .filter((b) => usable.has(b.brandId))
-      .map((b) => ({ ...b, lock: lockOf.get(b.brandId) ?? null })),
+    // AEs only see their own brands (buildRows lists brands by role).
+    checks: checks.filter((c) => c.planMinutes !== null || c.slotCount > 0),
     lockedBrandIds: locks.map((l) => l.brandId),
     canChangeLocked: canChangeLocked(user.role),
   };

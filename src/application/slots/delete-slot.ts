@@ -1,11 +1,17 @@
 import type { SessionUser } from "../auth/login";
-import { checkBookingAllowed } from "@/domain/booking";
-import type { BookingWindowRepository, Clock, SlotLockRepository, SlotRepository } from "../ports";
+import { checkBookingAllowed, monthOf } from "@/domain/booking";
+import type { BookingWindowRepository, BrandPlanRepository, Clock, SlotLockRepository, SlotRepository } from "../ports";
 import { recomputeStatuses } from "./recompute-statuses";
 import { lockedFor } from "./save-slot";
 
 export async function deleteSlot(
-  deps: { slots: SlotRepository; bookingWindows: BookingWindowRepository; locks: SlotLockRepository; clock: Clock },
+  deps: {
+    slots: SlotRepository;
+    bookingWindows: BookingWindowRepository;
+    locks: SlotLockRepository;
+    plans: BrandPlanRepository;
+    clock: Clock;
+  },
   user: SessionUser,
   slotId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -30,5 +36,6 @@ export async function deleteSlot(
     // Removing a slot can clear a conflict for the slots it clashed with.
     await recomputeStatuses(session, slot.date);
   });
+  await deps.plans.setApproved(slot.brandId, monthOf(slot.date), null);
   return { ok: true };
 }

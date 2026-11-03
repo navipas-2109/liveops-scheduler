@@ -50,6 +50,23 @@ export interface SlotLockRepository {
   unlock(brandId: string, month: string): Promise<void>;
 }
 
+export interface BrandPlan {
+  brandId: string;
+  month: string;
+  planMinutes: number;
+  remark: string;
+  approvedByName: string | null;
+  approvedAt: string | null; // ISO timestamp
+}
+
+export interface BrandPlanRepository {
+  listForMonth(month: string): Promise<BrandPlan[]>;
+  find(brandId: string, month: string): Promise<BrandPlan | null>;
+  // Changing the plan clears an approval.
+  setPlan(brandId: string, month: string, planMinutes: number, remark: string): Promise<void>;
+  setApproved(brandId: string, month: string, userId: string | null): Promise<void>;
+}
+
 export interface Room {
   id: string;
   shortName: string;

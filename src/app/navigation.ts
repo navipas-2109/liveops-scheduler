@@ -22,6 +22,12 @@ export const NAV_ITEMS: NavItem[] = [
     description: "ลงสล็อตไลฟ์ตาม PD และยืนยัน/ล็อกสล็อตของแต่ละแบรนด์",
   },
   {
+    id: "brandCheck",
+    href: "/brand-check",
+    label: "Brand Slot Check",
+    description: "ชั่วโมงที่ลงแล้วเทียบ Plan · Planner Approve · AE ยืนยันสล็อต",
+  },
+  {
     id: "mcSheet",
     href: "/mc-sheet",
     label: "MC Slot Sheet",
