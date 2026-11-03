@@ -30,12 +30,13 @@ const recordSelect = {
   admin1Id: true,
   admin2Id: true,
   status: true,
+  mcConfirmedAt: true,
 } satisfies Prisma.SlotSelect;
 
 type RecordRow = Prisma.SlotGetPayload<{ select: typeof recordSelect }>;
 
-function toRecord(row: RecordRow): SlotRecord {
-  return { ...row, date: toIsoDate(row.date), status: fromDbStatus(row.status) };
+function toRecord({ mcConfirmedAt, ...row }: RecordRow): SlotRecord {
+  return { ...row, date: toIsoDate(row.date), status: fromDbStatus(row.status), mcConfirmed: !!mcConfirmedAt };
 }
 
 const listSelect = {
@@ -78,7 +79,13 @@ function sessionFor(db: Db): SlotWriteSession {
       await db.slot.update({ where: { id }, data: { status: toDbStatus(status) } });
     },
     async setMc(id, mcId, plannerId) {
-      await db.slot.update({ where: { id }, data: { mcId, plannerId } });
+      await db.slot.update({ where: { id }, data: { mcId, plannerId, mcConfirmedAt: null } });
+    },
+    async setMcConfirmed(id, confirmed) {
+      await db.slot.update({ where: { id }, data: { mcConfirmedAt: confirmed ? new Date() : null } });
+    },
+    async clearMc(id) {
+      await db.slot.update({ where: { id }, data: { mcId: null, mcConfirmedAt: null } });
     },
     async setStaff(id, staff) {
       await db.slot.update({ where: { id }, data: staff });

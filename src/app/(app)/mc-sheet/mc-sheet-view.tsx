@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { SlotListItem } from "@/application/ports";
 import type { McSheetPageData } from "@/application/slots/get-mc-sheet-page";
 import { monthLabel, shiftMonth } from "../../format";
+import { respondToSlotAction } from "../mc-planning/actions";
 import { AssignDrawer } from "../mc-planning/assign-drawer";
 import { hours, pdNames, sheetDate, sheetTime, toCsv, toTsv } from "./sheet-export";
 
@@ -27,6 +28,18 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
   const [missingOnly, setMissingOnly] = useState(false);
   const [selected, setSelected] = useState<SlotListItem | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const isMc = data.viewer === "mc";
+
+  async function respond(s: SlotListItem, response: "confirm" | "unconfirm" | "remove") {
+    if (response === "remove" && !window.confirm(`เอาชื่อคุณออกจากไลฟ์ ${s.brandName} (${s.platform}) ${sheetDate(s.date)} ${sheetTime(s.startMinute)}?\nPlanner จะได้รับแจ้งให้หา MC ใหม่`)) return;
+    setBusyId(s.id);
+    setError(null);
+    const r = await respondToSlotAction(s.id, response);
+    setBusyId(null);
+    if (!r.ok) setError(r.error);
+  }
 
   const brands = [...new Set(data.rows.map((r) => r.brandName))];
   const channels = [...new Set(data.rows.map((r) => r.platform))].sort();
@@ -76,10 +89,12 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
               <option key={c}>{c}</option>
             ))}
           </select>
-          <label className="flex items-center gap-1.5 text-xs text-soft">
-            <input type="checkbox" checked={missingOnly} onChange={(e) => setMissingOnly(e.target.checked)} />
-            เฉพาะที่ยังไม่มี MC ({missing})
-          </label>
+          {data.viewer === "planner" && (
+            <label className="flex items-center gap-1.5 text-xs text-soft">
+              <input type="checkbox" checked={missingOnly} onChange={(e) => setMissingOnly(e.target.checked)} />
+              เฉพาะที่ยังไม่มี MC ({missing})
+            </label>
+          )}
           <button
             type="button"
             onClick={copy}
@@ -100,6 +115,18 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
         </div>
       </section>
 
+      {isMc && (
+        <p className="rounded-xl border border-line bg-card px-4 py-2.5 text-xs text-soft">
+          ไลฟ์ที่ Planner ลงชื่อคุณไว้ · ติ้ก “ยืนยัน” ทุกไลฟ์ที่รับได้ · ถ้ารับไม่ได้ กด “เอาชื่อออก” แล้ว Planner จะหา MC ใหม่ ·
+          ยืนยันแล้ว {data.rows.filter((r) => r.mcConfirmed).length}/{data.rows.length}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="rounded-lg border border-conflict-fg/30 bg-conflict-bg px-3 py-2 text-xs text-conflict-fg">
+          {error}
+        </p>
+      )}
+
       {data.pending.length > 0 && (
         <details className="rounded-xl border border-waiting-fg/30 bg-waiting-bg/40 px-4 py-2.5 text-xs text-waiting-fg">
           <summary className="cursor-pointer">
@@ -113,11 +140,11 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
 
       <section className="rounded-xl border border-line bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-xs">
+          <table className="w-full min-w-[1080px] text-left text-xs">
             <thead className="bg-primary text-[11px] text-white">
               <tr>
-                {["MC", "Brand", "Channel", "Date", "Start Time", "End Time", "Hrs", "Room", "PD", "Note"].map((h) => (
-                  <th key={h} className="px-3 py-2 font-semibold">
+                {[isMc ? "ยืนยัน" : "MC", isMc ? "" : "MC ยืนยัน", "Brand", "Channel", "Date", "Start Time", "End Time", "Hrs", "Room", "PD", "Note"].map((h, i) => (
+                  <th key={i} className="px-3 py-2 font-semibold">
                     {h}
                   </th>
                 ))}
@@ -127,7 +154,18 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
               {rows.map((s) => (
                 <tr key={s.id} className={`border-b border-l-[3px] border-b-line/60 ${ROW_TONE[s.status] ?? ""}`}>
                   <td className="px-2 py-1">
-                    {data.canAssign && s.status !== "completed" ? (
+                    {isMc ? (
+                      <label className="flex items-center gap-1.5 px-1 font-medium">
+                        <input
+                          type="checkbox"
+                          checked={s.mcConfirmed}
+                          disabled={busyId === s.id || s.status === "completed"}
+                          onChange={(e) => respond(s, e.target.checked ? "confirm" : "unconfirm")}
+                          aria-label={`ยืนยัน ${s.brandName} ${s.date} ${sheetTime(s.startMinute)}`}
+                        />
+                        {s.mcConfirmed ? "ยืนยันแล้ว" : "ยืนยัน"}
+                      </label>
+                    ) : data.canAssign && s.status !== "completed" ? (
                       <button
                         type="button"
                         onClick={() => setSelected(s)}
@@ -138,7 +176,29 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
                         {s.mcName ?? "เลือก MC ▾"}
                       </button>
                     ) : (
-                      <span className="px-2 font-semibold">{s.mcName ?? "—"}</span>
+                      <span className="px-2 font-semibold">
+                        {s.mcName ?? (s.mcId ? <span className="font-normal text-muted">รอ MC ยืนยัน</span> : "—")}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    {isMc ? (
+                      s.status !== "completed" && (
+                        <button
+                          type="button"
+                          disabled={busyId === s.id}
+                          onClick={() => respond(s, "remove")}
+                          className="whitespace-nowrap rounded-md px-2 py-1 text-[11px] text-conflict-fg hover:bg-conflict-bg disabled:opacity-50"
+                        >
+                          เอาชื่อออก
+                        </button>
+                      )
+                    ) : !s.mcId ? (
+                      <span className="text-muted">—</span>
+                    ) : s.mcConfirmed ? (
+                      <span className="font-semibold text-confirmed-fg">✓ ยืนยันแล้ว</span>
+                    ) : (
+                      <span className="text-waiting-fg">รอ MC</span>
                     )}
                   </td>
                   <td className="px-3 py-1.5 font-medium">{s.brandName}</td>
@@ -159,12 +219,18 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
           </table>
           {rows.length === 0 && (
             <p className="px-4 py-10 text-center text-xs text-muted">
-              {data.rows.length === 0 ? "ยังไม่มีแบรนด์ที่ยืนยันสล็อตเดือนนี้" : "ไม่มีสล็อตตรงกับตัวกรอง"}
+              {data.rows.length > 0
+                ? "ไม่มีสล็อตตรงกับตัวกรอง"
+                : isMc
+                  ? "ยังไม่มีไลฟ์ที่ลงชื่อคุณในเดือนนี้"
+                  : "ยังไม่มีแบรนด์ที่ยืนยันสล็อตเดือนนี้"}
             </p>
           )}
         </div>
         <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
-          {rows.length} สล็อต · {rows.reduce((a, s) => a + hours(s), 0)} ชั่วโมง · คลิกช่อง MC เพื่อเลือก MC (MC ที่ติดไลฟ์อื่นเวลาเดียวกันจะเลือกไม่ได้)
+          {rows.length} สล็อต · {rows.reduce((a, s) => a + hours(s), 0)} ชั่วโมง
+          {data.canAssign && " · คลิกช่อง MC เพื่อเลือก MC (MC ที่ติดไลฟ์อื่นเวลาเดียวกันจะเลือกไม่ได้) · เปลี่ยน MC แล้ว MC ต้องยืนยันใหม่"}
+          {data.viewer === "ae" && " · ชื่อ MC จะแสดงเมื่อ MC ยืนยันแล้ว"}
         </p>
       </section>
 

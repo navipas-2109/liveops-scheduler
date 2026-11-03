@@ -1,5 +1,11 @@
 import type { ProducerPosition, ShiftKind as DbShiftKind } from "@prisma/client";
-import type { Producer, ProducerRepository, ShiftKind, ShiftRepository } from "@/application/ports";
+import type {
+  Producer,
+  ProducerRepository,
+  ShiftKind,
+  ShiftMonthRepository,
+  ShiftRepository,
+} from "@/application/ports";
 import { fromIsoDate, toIsoDate } from "@/domain/time";
 import { prisma } from "../prisma";
 
@@ -91,5 +97,18 @@ export const prismaProducerRepository: ProducerRepository = {
   },
   slotCount(id) {
     return prisma.slot.count({ where: { OR: [{ producerId: id }, { admin1Id: id }, { admin2Id: id }] } });
+  },
+};
+
+export const prismaShiftMonthRepository: ShiftMonthRepository = {
+  async find(month) {
+    const row = await prisma.shiftMonth.findUnique({ where: { month }, include: { confirmedBy: { select: { name: true } } } });
+    return row ? { month, confirmedByName: row.confirmedBy.name, confirmedAt: row.confirmedAt.toISOString() } : null;
+  },
+  async confirm(month, userId) {
+    await prisma.shiftMonth.upsert({ where: { month }, create: { month, confirmedById: userId }, update: {} });
+  },
+  async unconfirm(month) {
+    await prisma.shiftMonth.deleteMany({ where: { month } });
   },
 };

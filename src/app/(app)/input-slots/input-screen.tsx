@@ -13,6 +13,7 @@ import type { SlotFormValues } from "../brand-slots/actions";
 import { SlotDrawer } from "../brand-slots/slot-drawer";
 import { DayTimeline } from "../schedule/day-timeline";
 import { pdRows, roomColors, type TimelineRow } from "../schedule/schedule-shared";
+import { BookingBanner } from "../booking-banner";
 import { confirmReadyAction } from "../brand-check/actions";
 import { CheckBadge, hrs } from "../brand-check/check-status";
 import { setBrandLockAction } from "./actions";
@@ -124,6 +125,14 @@ export function InputScreen({ data }: { data: InputPageData }) {
           </select>
         </label>
       </section>
+
+      <BookingBanner
+        window={data.window}
+        open={data.windowOpen}
+        canEdit={data.canSetWindow}
+        today={data.today}
+        month={data.month}
+      />
 
       {notice && (
         <p role="alert" className="rounded-lg border border-conflict-fg/30 bg-conflict-bg px-3 py-2 text-xs text-conflict-fg">

@@ -11,8 +11,8 @@ export async function saveProducer(
   input: ProducerInput,
   id?: string,
 ): Promise<{ ok: true; producer: Producer } | { ok: false; error: string }> {
-  if (user.role !== "OPERATION" && user.role !== "MANAGER") {
-    return { ok: false, error: "เฉพาะ Operation และ Manager เท่านั้นที่แก้ข้อมูลพนักงานได้" };
+  if (!["OPERATION", "PLANNER", "MANAGER"].includes(user.role)) {
+    return { ok: false, error: "เฉพาะ Operation, Planner และ Manager เท่านั้นที่แก้ข้อมูลพนักงานได้" };
   }
   const name = input.name.replace(/\s+/g, " ").trim();
   const employeeId = input.employeeId?.trim() || null;

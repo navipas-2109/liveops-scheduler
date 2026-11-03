@@ -8,7 +8,7 @@ import type { Role } from "@/domain/roles";
 export const SESSION_COOKIE = "liveops_session";
 export const SESSION_MAX_AGE_SEC = 7 * 24 * 60 * 60;
 
-const ROLES: Role[] = ["AE", "PLANNER", "OPERATION", "MANAGER"];
+const ROLES: Role[] = ["AE", "PLANNER", "OPERATION", "MANAGER", "MC"];
 
 function secretKey() {
   const secret = process.env.JWT_SECRET;
@@ -19,7 +19,7 @@ function secretKey() {
 }
 
 export function signSessionToken(user: SessionUser): Promise<string> {
-  return new SignJWT({ name: user.name, role: user.role })
+  return new SignJWT({ name: user.name, role: user.role, ...(user.mcId ? { mcId: user.mcId } : {}) })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.userId)
     .setIssuedAt()
@@ -33,7 +33,9 @@ export async function verifySessionToken(token: string | undefined): Promise<Ses
     const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
     const role = payload.role as Role;
     if (!payload.sub || typeof payload.name !== "string" || !ROLES.includes(role)) return null;
-    return { userId: payload.sub, name: payload.name, role };
+    const mcId = typeof payload.mcId === "string" ? payload.mcId : null;
+    if (role === "MC" && !mcId) return null;
+    return { userId: payload.sub, name: payload.name, role, mcId };
   } catch {
     return null;
   }

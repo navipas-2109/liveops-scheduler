@@ -20,6 +20,7 @@ import { getPaymentPage, type PaymentTab } from "@/application/payments/get-paym
 import { recordOnTime, recordPayment, type RecordInput } from "@/application/payments/record-payment";
 import type { Clock, ProducerInput, RoomInput, SlotStaff } from "@/application/ports";
 import { importShifts, previewShiftImport } from "@/application/shifts/import-shifts";
+import { getShiftMonth, setShiftMonthConfirmed } from "@/application/shifts/shift-month";
 import { saveProducer } from "@/application/shifts/producers";
 import { assignStaff, getStaffGrid, getStaffShiftPage } from "@/application/shifts/staff-shift";
 import { assignMc, getBusyMcs } from "@/application/slots/assign-mc";
@@ -30,6 +31,7 @@ import { getBrandSlotPage, type BrandSlotPageQuery } from "@/application/slots/g
 import { getMcPlanningPage } from "@/application/slots/get-mc-planning-page";
 import { getMcSheetPage } from "@/application/slots/get-mc-sheet-page";
 import { joinSlot } from "@/application/slots/join-slot";
+import { respondToSlot, type McResponse } from "@/application/slots/mc-respond";
 import {
   getSchedulePage,
   rangeFor,
@@ -52,6 +54,7 @@ import {
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
 import {
   prismaProducerRepository,
+  prismaShiftMonthRepository,
   prismaShiftRepository,
 } from "@/infrastructure/repositories/prisma-shift-repository";
 import { prismaPaymentRepository } from "@/infrastructure/repositories/prisma-payment-repository";
@@ -74,6 +77,7 @@ const deps = {
   shifts: prismaShiftRepository,
   producers: prismaProducerRepository,
   locks: prismaSlotLockRepository,
+  shiftMonths: prismaShiftMonthRepository,
   plans: prismaBrandPlanRepository,
   passwords: bcryptHasher,
   notifier: larkNotifier,
@@ -120,12 +124,17 @@ export const services = {
     previewShiftImport(deps, user, input),
   importShifts: (user: SessionUser, input: { month: string; text: string }) =>
     importShifts(deps, user, input),
+  getShiftMonth: (month: string) => getShiftMonth(deps, month),
+  setShiftMonthConfirmed: (user: SessionUser, month: string, confirmed: boolean) =>
+    setShiftMonthConfirmed(deps, user, month, confirmed),
   listProducers: () => deps.producers.listAll(),
   saveProducer: (user: SessionUser, input: ProducerInput, id?: string) =>
     saveProducer(deps, user, input, id),
   getInputPage: (user: SessionUser, date: string | null) => getInputPage(deps, user, date),
   getMcSheetPage: (user: SessionUser, month: string) => getMcSheetPage(deps, user, month),
   joinSlot: (user: SessionUser, slotId: string, producerId: string) => joinSlot(deps, user, slotId, producerId),
+  respondToSlot: (user: SessionUser, slotId: string, response: McResponse) =>
+    respondToSlot(deps, user, slotId, response),
   getBrandCheckPage: (user: SessionUser, month: string) => getBrandCheckPage(deps, user, month),
   setPlan: (user: SessionUser, brandId: string, month: string, hours: number, remark: string) =>
     setPlan(deps, user, brandId, month, hours, remark),

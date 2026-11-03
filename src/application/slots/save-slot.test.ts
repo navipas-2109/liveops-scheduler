@@ -6,6 +6,7 @@ import type { McRepository, NotifyChannel, SlotRecord, SlotRepository, SlotWrite
 import { assignMc, getBusyMcs } from "./assign-mc";
 import { deleteSlot } from "./delete-slot";
 import { joinSlot } from "./join-slot";
+import { respondToSlot } from "./mc-respond";
 import { saveSlot, type SaveSlotDeps, type SlotInput } from "./save-slot";
 
 const ae: SessionUser = { userId: "ae1", name: "สมชาย", role: "AE" };
@@ -30,6 +31,7 @@ function fakeDeps(today = "2026-10-29") {
         admin1Id: slot.admin1Id ?? null,
         admin2Id: null,
         status: "waiting",
+        mcConfirmed: false,
       };
       rows.push(row);
       return { ...row };
@@ -46,7 +48,13 @@ function fakeDeps(today = "2026-10-29") {
       rows.find((r) => r.id === id)!.status = status;
     },
     setMc: async (id, mcId) => {
-      rows.find((r) => r.id === id)!.mcId = mcId;
+      Object.assign(rows.find((r) => r.id === id)!, { mcId, mcConfirmed: false });
+    },
+    setMcConfirmed: async (id, confirmed) => {
+      rows.find((r) => r.id === id)!.mcConfirmed = confirmed;
+    },
+    clearMc: async (id) => {
+      Object.assign(rows.find((r) => r.id === id)!, { mcId: null, mcConfirmed: false });
     },
     setStaff: async (id, staff) => {
       Object.assign(rows.find((r) => r.id === id)!, staff);
@@ -297,5 +305,38 @@ describe("Planner approval", () => {
     expect(env.cleared.slice(1)).toEqual(["cosrx|2026-11|null", "puma|2026-11|null"]);
     await deleteSlot(env.deps, manager, r.ok ? r.slot.id : "");
     expect(env.cleared.at(-1)).toBe("cosrx|2026-11|null");
+  });
+});
+
+describe("MC answers for their lives", () => {
+  const planner: SessionUser = { userId: "p1", name: "Planner", role: "PLANNER" };
+  const boss: SessionUser = { userId: "u-boss", name: "Boss", role: "MC", mcId: "boss" };
+  const sari: SessionUser = { userId: "u-sari", name: "Sari", role: "MC", mcId: "sari" };
+
+  it("confirms, unticks or removes only their own live", async () => {
+    const env = fakeDeps();
+    const r = await saveSlot(env.deps, planner, input());
+    const id = r.ok ? r.slot.id : "";
+    await assignMc(env.deps, planner, id, "boss");
+
+    expect((await respondToSlot(env.deps, sari, id, "confirm")).ok).toBe(false);
+    expect(await respondToSlot(env.deps, boss, id, "confirm")).toEqual({ ok: true });
+    expect(env.rows[0].mcConfirmed).toBe(true);
+    await respondToSlot(env.deps, boss, id, "unconfirm");
+    expect(env.rows[0].mcConfirmed).toBe(false);
+
+    expect(await respondToSlot(env.deps, boss, id, "remove")).toEqual({ ok: true });
+    expect(env.rows[0]).toMatchObject({ mcId: null, status: "waiting" });
+    expect(env.sent.at(-1)?.text).toContain("ถอนชื่อออก");
+  });
+
+  it("a new MC has to confirm again", async () => {
+    const env = fakeDeps();
+    const r = await saveSlot(env.deps, planner, input());
+    const id = r.ok ? r.slot.id : "";
+    await assignMc(env.deps, planner, id, "boss");
+    await respondToSlot(env.deps, boss, id, "confirm");
+    await assignMc(env.deps, planner, id, "sari");
+    expect(env.rows[0]).toMatchObject({ mcId: "sari", mcConfirmed: false });
   });
 });

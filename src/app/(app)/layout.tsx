@@ -11,7 +11,8 @@ export const instant = false;
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  const alerts = await services.getTodayAlerts();
+  // Office alerts (conflicts, lives waiting for an MC) aren't for MC logins.
+  const alerts = user.role === "MC" ? { conflict: 0, waiting: 0 } : await services.getTodayAlerts();
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">

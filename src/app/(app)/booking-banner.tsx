@@ -11,10 +11,12 @@ interface Props {
   open: boolean;
   canEdit: boolean;
   today: string;
+  // Month a new window is for by default (next month if not given).
+  month?: string;
 }
 
 // Green when AEs can book now, amber when the window is closed.
-export function BookingBanner({ window, open, canEdit, today }: Props) {
+export function BookingBanner({ window, open, canEdit, today, month }: Props) {
   const [editing, setEditing] = useState(false);
 
   const tone = open
@@ -23,9 +25,11 @@ export function BookingBanner({ window, open, canEdit, today }: Props) {
   const Icon = open ? CalendarCheck2 : CalendarClock;
 
   let text: string;
-  if (!window) text = "ยังไม่มี Booking Window — AE ยังลงสล็อตไม่ได้";
+  if (!window) text = `ยังไม่มี Booking Window${month ? ` เดือน ${monthLabel(month)}` : ""} — AE ยังลงสล็อตไม่ได้`;
   else if (open)
     text = `Booking Window เปิดอยู่ · ลงสล็อตเดือน ${monthLabel(window.targetMonth)} ได้ถึง ${shortDateLabel(window.openTo)}`;
+  else if (window.openTo < today)
+    text = `Booking Window เดือน ${monthLabel(window.targetMonth)} ปิดแล้ว (${shortDateLabel(window.openFrom)} – ${shortDateLabel(window.openTo)}) · AE แก้ไขสล็อตไม่ได้`;
   else
     text = `Booking Window ปิดอยู่ · รอบถัดไป: เดือน ${monthLabel(window.targetMonth)} เปิด ${shortDateLabel(window.openFrom)} – ${shortDateLabel(window.openTo)}`;
 
@@ -51,7 +55,7 @@ export function BookingBanner({ window, open, canEdit, today }: Props) {
         <WindowForm
           initial={
             window ?? {
-              targetMonth: shiftMonth(today.slice(0, 7), 1),
+              targetMonth: month ?? shiftMonth(today.slice(0, 7), 1),
               openFrom: today,
               openTo: today,
               note: "",

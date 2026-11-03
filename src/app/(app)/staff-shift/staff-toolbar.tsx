@@ -1,10 +1,13 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
+import { CircleCheck, ChevronLeft, ChevronRight, FileSpreadsheet, PencilLine } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import type { ShiftMonthInfo } from "@/application/ports";
 import { fromIsoDate, toIsoDate } from "@/domain/time";
+import { monthLabel } from "../../format";
+import { setShiftMonthAction } from "./actions";
 import { ImportDrawer } from "./import-drawer";
 
 export type StaffView = "month" | "week" | "day";
@@ -26,14 +29,26 @@ export function StaffToolbar({
   date,
   title,
   canEdit,
+  shiftMonth,
 }: {
   view: StaffView;
   date: string;
   title: string;
   canEdit: boolean;
+  shiftMonth: ShiftMonthInfo | null;
 }) {
   const pathname = usePathname();
   const [importing, setImporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const month = date.slice(0, 7);
+  async function setConfirmed(confirmed: boolean) {
+    const question = confirmed
+      ? `ยืนยันกะของ Producer เดือน ${monthLabel(month)}?\nหลังยืนยันจะนำเข้ากะทับไม่ได้ จนกว่าจะกด “แก้ไขกะ”`
+      : `เปิดแก้ไขกะเดือน ${monthLabel(month)}?`;
+    if (!window.confirm(question)) return;
+    const r = await setShiftMonthAction(month, confirmed);
+    setError(r.ok ? null : r.error);
+  }
   const href = (v: StaffView, d: string | null) => `${pathname}?view=${v}${d ? `&date=${d}` : ""}`;
 
   return (
@@ -63,15 +78,45 @@ export function StaffToolbar({
         </Link>
         <span className="text-sm font-semibold">{title}</span>
       </div>
-      {canEdit && (
-        <button
-          type="button"
-          onClick={() => setImporting(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
-        >
-          <FileSpreadsheet size={14} /> นำเข้ากะจาก Google Sheet
-        </button>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {shiftMonth ? (
+          <span className="flex items-center gap-1.5 rounded-md bg-confirmed-bg px-2.5 py-1.5 text-[11px] font-semibold text-confirmed-fg">
+            <CircleCheck size={13} /> กะเดือน {monthLabel(month)} ยืนยันแล้ว · {shiftMonth.confirmedByName}
+          </span>
+        ) : (
+          <span className="rounded-md bg-waiting-bg px-2.5 py-1.5 text-[11px] font-semibold text-waiting-fg">
+            กะเดือน {monthLabel(month)} ยังไม่ยืนยัน
+          </span>
+        )}
+        {canEdit &&
+          (shiftMonth ? (
+            <button
+              type="button"
+              onClick={() => setConfirmed(false)}
+              className="flex items-center gap-1.5 rounded-lg border border-line-strong px-3 py-2 text-xs font-medium text-soft hover:bg-field"
+            >
+              <PencilLine size={14} /> แก้ไขกะ
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setImporting(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-line-strong px-3 py-2 text-xs font-medium text-soft hover:bg-field"
+              >
+                <FileSpreadsheet size={14} /> นำเข้ากะจาก Google Sheet
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmed(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
+              >
+                <CircleCheck size={14} /> ยืนยันกะเดือนนี้
+              </button>
+            </>
+          ))}
+      </div>
+      {error && <p role="alert" className="w-full text-xs text-conflict-fg">{error}</p>}
       {importing && <ImportDrawer defaultMonth={date.slice(0, 7)} onClose={() => setImporting(false)} />}
     </section>
   );

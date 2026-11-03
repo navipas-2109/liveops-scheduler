@@ -22,3 +22,11 @@ export async function importShiftsAction(month: string, text: string) {
   if (result.ok) refresh();
   return result;
 }
+
+export async function setShiftMonthAction(month: string, confirmed: boolean) {
+  const user = await getSessionUser();
+  if (!user) return SIGNED_OUT;
+  const result = await services.setShiftMonthConfirmed(user, String(month), confirmed === true);
+  if (result.ok) refresh();
+  return result;
+}

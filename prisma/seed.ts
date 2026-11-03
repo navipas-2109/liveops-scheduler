@@ -82,13 +82,17 @@ async function seedUsers() {
   const brandNames = [...new Set(BRAND_PLATFORM_RAW.map((b) => b.brand))].sort();
   const aeBrandNames = [brandNames.slice(0, 16), brandNames.slice(16, 32), brandNames.slice(32)];
 
-  const users: { email: string; name: string; role: Role; brands?: string[] }[] = [
+  const users: { email: string; name: string; role: Role; brands?: string[]; mc?: string }[] = [
     { email: "manager@liveops.local", name: "Manager", role: "MANAGER" },
     { email: "planner@liveops.local", name: "Planner", role: "PLANNER" },
     { email: "operation@liveops.local", name: "Operation", role: "OPERATION" },
     { email: "ae1@liveops.local", name: "สมชาย", role: "AE", brands: aeBrandNames[0] },
     { email: "ae2@liveops.local", name: "วิไล", role: "AE", brands: aeBrandNames[1] },
     { email: "ae3@liveops.local", name: "อรรถ", role: "AE", brands: aeBrandNames[2] },
+    // Demo MC logins, each tied to an MC in the MC list.
+    { email: "mc1@liveops.local", name: "Boss", role: "MC", mc: "Boss" },
+    { email: "mc2@liveops.local", name: "Sari", role: "MC", mc: "Sari" },
+    { email: "mc3@liveops.local", name: "Nanchu", role: "MC", mc: "Nanchu" },
   ];
 
   const existing = new Set(
@@ -100,8 +104,10 @@ async function seedUsers() {
   for (const u of users) {
     if (existing.has(u.email)) continue;
     const brands = allBrands.filter((b) => u.brands?.includes(b.brandName)).map((b) => ({ id: b.id }));
+    const mc = u.mc ? await prisma.mc.findUnique({ where: { nickname: u.mc }, select: { id: true } }) : null;
+    if (u.mc && !mc) continue;
     await prisma.user.create({
-      data: { email: u.email, name: u.name, role: u.role, passwordHash, brands: { connect: brands } },
+      data: { email: u.email, name: u.name, role: u.role, passwordHash, mcId: mc?.id, brands: { connect: brands } },
     });
   }
 }

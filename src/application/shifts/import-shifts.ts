@@ -1,6 +1,6 @@
 import type { SessionUser } from "../auth/login";
 import { parseShiftSheet, positionFromTitle, SHIFT_CODES, type SheetPerson } from "@/domain/shift-sheet";
-import type { Producer, ProducerRepository, ShiftEntry, ShiftRepository } from "../ports";
+import type { Producer, ProducerRepository, ShiftEntry, ShiftMonthRepository, ShiftRepository } from "../ports";
 
 export type MatchKind = "id" | "name" | "new";
 
@@ -42,7 +42,7 @@ function matchPerson(person: SheetPerson, producers: Producer[]): { producer: Pr
 }
 
 function canImport(user: SessionUser) {
-  return user.role === "OPERATION" || user.role === "MANAGER";
+  return ["OPERATION", "PLANNER", "MANAGER"].includes(user.role);
 }
 
 export async function previewShiftImport(
@@ -50,7 +50,7 @@ export async function previewShiftImport(
   user: SessionUser,
   input: { month: string; text: string },
 ): Promise<Result<ImportPreview>> {
-  if (!canImport(user)) return { ok: false, error: "เฉพาะ Operation และ Manager เท่านั้นที่นำเข้ากะได้" };
+  if (!canImport(user)) return { ok: false, error: "เฉพาะ Operation, Planner และ Manager เท่านั้นที่นำเข้ากะได้" };
   const parsed = parseShiftSheet(input.text, input.month);
   if (!parsed.ok) return parsed;
   const { people, entries, unknownCodes, blankCells } = parsed.result;
@@ -84,11 +84,14 @@ export async function previewShiftImport(
 // the month's shifts for everyone in the sheet. People not in the paste keep
 // their shifts.
 export async function importShifts(
-  deps: { producers: ProducerRepository; shifts: ShiftRepository },
+  deps: { producers: ProducerRepository; shifts: ShiftRepository; shiftMonths: ShiftMonthRepository },
   user: SessionUser,
   input: { month: string; text: string },
 ): Promise<Result<{ people: number; added: number; entries: number }>> {
-  if (!canImport(user)) return { ok: false, error: "เฉพาะ Operation และ Manager เท่านั้นที่นำเข้ากะได้" };
+  if (!canImport(user)) return { ok: false, error: "เฉพาะ Operation, Planner และ Manager เท่านั้นที่นำเข้ากะได้" };
+  if (await deps.shiftMonths.find(input.month)) {
+    return { ok: false, error: "กะเดือนนี้ยืนยันแล้ว — กด “แก้ไขกะ” ก่อนนำเข้าใหม่" };
+  }
   const parsed = parseShiftSheet(input.text, input.month);
   if (!parsed.ok) return parsed;
   const { people, entries } = parsed.result;

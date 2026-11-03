@@ -1,5 +1,6 @@
 "use client";
 
+import type { ShiftMonthInfo } from "@/application/ports";
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -24,7 +25,7 @@ const POSITIONS = ["Producer Team Lead", "Senior Producer", "Producer", "Jr. Pro
 
 // Week and month: one row per person, one column per day — like the team's
 // Shift Planning sheet, with how many lives each person staffs that day.
-export function StaffGridView({ data }: { data: StaffGridData }) {
+export function StaffGridView({ data, shiftMonth }: { data: StaffGridData; shiftMonth: ShiftMonthInfo | null }) {
   const [query, setQuery] = useState("");
   const [squad, setSquad] = useState("");
   const [position, setPosition] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export function StaffGridView({ data }: { data: StaffGridData }) {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      <StaffToolbar view={data.view} date={data.date} title={title} canEdit={data.canEdit} />
+      <StaffToolbar view={data.view} date={data.date} title={title} canEdit={data.canEdit} shiftMonth={shiftMonth} />
 
       <section className="rounded-xl border border-line bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">

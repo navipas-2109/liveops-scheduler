@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ShiftItem } from "@/application/ports";
+import type { ShiftItem, ShiftMonthInfo } from "@/application/ports";
 import type { StaffShiftPageData } from "@/application/shifts/staff-shift";
 import { SHIFT_CODES } from "@/domain/shift-sheet";
 import { fromLiveMinutes } from "@/domain/time";
@@ -14,7 +14,7 @@ const GROUP_ORDER = ["2", "4", "3", "OF"];
 
 // One day: who is on which shift and how many lives each person has.
 // Staffing lives happens on Input Live Slot.
-export function StaffShiftView({ data }: { data: StaffShiftPageData }) {
+export function StaffShiftView({ data, shiftMonth }: { data: StaffShiftPageData; shiftMonth: ShiftMonthInfo | null }) {
   const [squad, setSquad] = useState("");
   const inSquad = (x: ShiftItem) => !squad || x.squad === squad;
 
@@ -31,7 +31,7 @@ export function StaffShiftView({ data }: { data: StaffShiftPageData }) {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      <StaffToolbar view="day" date={data.date} title={dayLabel(data.date)} canEdit={data.canEdit} />
+      <StaffToolbar view="day" date={data.date} title={dayLabel(data.date)} canEdit={data.canEdit} shiftMonth={shiftMonth} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card label="PD เข้ากะไลฟ์" value={working.filter((x) => x.kind === "live").length} />

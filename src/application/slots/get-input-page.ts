@@ -1,6 +1,8 @@
 import type { SessionUser } from "../auth/login";
+import { isWindowOpen, type BookingWindow } from "@/domain/booking";
 import { canChangeLocked } from "@/domain/slot-lock";
 import type {
+  BookingWindowRepository,
   Brand,
   BrandRepository,
   BrandPlanRepository,
@@ -30,6 +32,10 @@ export interface InputPageData {
   // Brands with a plan or lives this month: hours against plan and status.
   checks: BrandCheckRow[];
   lockedBrandIds: string[];
+  // This month's booking window: when AEs may add, change or delete lives.
+  window: BookingWindow | null;
+  windowOpen: boolean;
+  canSetWindow: boolean;
   canChangeLocked: boolean;
 }
 
@@ -44,6 +50,7 @@ export async function getInputPage(
     producers: ProducerRepository;
     locks: SlotLockRepository;
     plans: BrandPlanRepository;
+    bookingWindows: BookingWindowRepository;
     clock: Clock;
   },
   user: SessionUser,
@@ -52,7 +59,7 @@ export async function getInputPage(
   const today = deps.clock.today();
   const day = date ?? today;
   const month = day.slice(0, 7);
-  const [shifts, slots, rooms, brands, producers, locks, checks] = await Promise.all([
+  const [shifts, slots, rooms, brands, producers, locks, checks, windows] = await Promise.all([
     deps.shifts.listInRange(day, day),
     deps.slots.list({ from: day, to: day }),
     deps.rooms.listAll(),
@@ -60,7 +67,9 @@ export async function getInputPage(
     deps.producers.listAll(),
     deps.locks.listForMonth(month),
     buildRows(deps, user, month),
+    deps.bookingWindows.listAll(),
   ]);
+  const window = windows.find((w) => w.targetMonth === month) ?? null;
   return {
     date: day,
     today,
@@ -75,5 +84,8 @@ export async function getInputPage(
     checks: checks.filter((c) => c.planMinutes !== null || c.slotCount > 0),
     lockedBrandIds: locks.map((l) => l.brandId),
     canChangeLocked: canChangeLocked(user.role),
+    window,
+    windowOpen: !!window && isWindowOpen(window, today),
+    canSetWindow: user.role === "PLANNER" || user.role === "MANAGER",
   };
 }

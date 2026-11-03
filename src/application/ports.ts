@@ -11,6 +11,7 @@ export interface UserCredentials {
   id: string;
   name: string;
   role: Role;
+  mcId: string | null;
   passwordHash: string;
 }
 
@@ -65,6 +66,18 @@ export interface BrandPlanRepository {
   // Changing the plan clears an approval.
   setPlan(brandId: string, month: string, planMinutes: number, remark: string): Promise<void>;
   setApproved(brandId: string, month: string, userId: string | null): Promise<void>;
+}
+
+export interface ShiftMonthInfo {
+  month: string;
+  confirmedByName: string;
+  confirmedAt: string; // ISO timestamp
+}
+
+export interface ShiftMonthRepository {
+  find(month: string): Promise<ShiftMonthInfo | null>;
+  confirm(month: string, userId: string): Promise<void>;
+  unconfirm(month: string): Promise<void>;
 }
 
 export interface Room {
@@ -128,6 +141,7 @@ export interface SlotRecord {
   admin1Id: string | null;
   admin2Id: string | null;
   status: SlotStatus;
+  mcConfirmed: boolean; // the MC ticked this live as confirmed
 }
 
 export interface SlotListItem extends SlotRecord {
@@ -181,7 +195,10 @@ export interface SlotWriteSession {
   update(id: string, changes: SlotChanges): Promise<SlotRecord>;
   remove(id: string): Promise<void>;
   setStatus(id: string, status: SlotStatus): Promise<void>;
+  // Changing the MC clears the MC's confirmation.
   setMc(id: string, mcId: string | null, plannerId: string): Promise<void>;
+  setMcConfirmed(id: string, confirmed: boolean): Promise<void>;
+  clearMc(id: string): Promise<void>;
   setStaff(id: string, staff: SlotStaff): Promise<void>;
 }
 

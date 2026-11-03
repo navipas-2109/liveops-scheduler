@@ -80,7 +80,7 @@ export async function deleteProducer(
   user: SessionUser,
   id: string,
 ): Promise<Result> {
-  if (user.role !== "OPERATION" && user.role !== "MANAGER") return NO_RIGHTS;
+  if (!EDITORS.includes(user.role)) return NO_RIGHTS;
   const used = await deps.producers.slotCount(id);
   if (used > 0) return IN_USE(used);
   await deps.producers.remove(id);

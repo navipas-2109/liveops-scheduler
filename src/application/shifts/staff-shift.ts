@@ -48,7 +48,7 @@ export async function getStaffShiftPage(
       lives: slots.length,
       ready: slots.filter(isStaffReady).length,
     },
-    canEdit: user.role === "OPERATION" || user.role === "MANAGER",
+    canEdit: ["OPERATION", "PLANNER", "MANAGER"].includes(user.role),
   };
 }
 
@@ -189,6 +189,6 @@ export async function getStaffGrid(
     codes,
     assigned,
     totals,
-    canEdit: user.role === "OPERATION" || user.role === "MANAGER",
+    canEdit: ["OPERATION", "PLANNER", "MANAGER"].includes(user.role),
   };
 }

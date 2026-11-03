@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SessionUser } from "../auth/login";
 import type { Producer, ProducerRepository, ShiftEntry, ShiftRepository } from "../ports";
+import { setShiftMonthConfirmed } from "./shift-month";
 import { importShifts, previewShiftImport } from "./import-shifts";
 import { saveProducer } from "./producers";
 
@@ -41,7 +42,13 @@ function fakes() {
       stored.push(...entries);
     },
   };
-  return { producers, deps: { producers: producerRepo, shifts: shiftRepo }, stored: () => stored };
+  const confirmed = new Set<string>();
+  const shiftMonths = {
+    find: async (month: string) => (confirmed.has(month) ? { month, confirmedByName: "Planner", confirmedAt: "" } : null),
+    confirm: async (month: string) => void confirmed.add(month),
+    unconfirm: async (month: string) => void confirmed.delete(month),
+  };
+  return { producers, deps: { producers: producerRepo, shifts: shiftRepo, shiftMonths }, stored: () => stored };
 }
 
 const SHEET = [
@@ -159,5 +166,15 @@ describe("getStaffGrid", () => {
     expect(grid.codes.p1["2026-11-02"]).toBe("2");
     expect(grid.assigned.p1["2026-11-02"]).toBe(2);
     expect(grid.totals["2026-11-02"]).toEqual({ live: 1, office: 0, away: 1, lives: 2, notReady: 1 });
+  });
+
+  it("a confirmed month can't be re-imported until the Planner reopens it", async () => {
+    const { deps } = fakes();
+    const planner = { userId: "p", name: "Planner", role: "PLANNER" as const };
+    expect((await setShiftMonthConfirmed(deps, ae, "2026-11", true)).ok).toBe(false);
+    expect((await setShiftMonthConfirmed(deps, planner, "2026-11", true)).ok).toBe(true);
+    expect((await importShifts(deps, planner, { month: "2026-11", text: SHEET })).ok).toBe(false);
+    await setShiftMonthConfirmed(deps, planner, "2026-11", false);
+    expect((await importShifts(deps, planner, { month: "2026-11", text: SHEET })).ok).toBe(true);
   });
 });
