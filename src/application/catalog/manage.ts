@@ -83,9 +83,10 @@ export async function deleteProducer(
   return { ok: true, value: undefined };
 }
 
-// Anyone who books lives may confirm a brand's month; only Planners unlock.
+// Anyone who books lives may confirm a brand's month (AEs only their own
+// brands); only Planners unlock.
 export async function setBrandLock(
-  deps: { locks: SlotLockRepository },
+  deps: { locks: SlotLockRepository; brands: BrandRepository },
   user: SessionUser,
   brandId: string,
   month: string,
@@ -93,7 +94,10 @@ export async function setBrandLock(
 ): Promise<Result> {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { ok: false, error: "เดือนไม่ถูกต้อง" };
   if (locked) {
-    if (!EDITORS.includes(user.role)) return NO_RIGHTS;
+    if (user.role === "AE") {
+      const mine = await deps.brands.listForAe(user.userId);
+      if (!mine.some((b) => b.id === brandId)) return NO_RIGHTS;
+    } else if (!EDITORS.includes(user.role)) return NO_RIGHTS;
     await deps.locks.lock(brandId, month, user.userId);
   } else {
     if (!canChangeLocked(user.role)) return { ok: false, error: "ปลดล็อกได้เฉพาะ Planner" };

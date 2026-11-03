@@ -57,12 +57,13 @@ export async function getInputPage(
     deps.shifts.listInRange(day, day),
     deps.slots.list({ from: day, to: day }),
     deps.rooms.listAll(),
-    deps.brands.listAll(),
+    user.role === "AE" ? deps.brands.listForAe(user.userId) : deps.brands.listAll(),
     deps.producers.listAll(),
     deps.locks.listForMonth(month),
     deps.slots.countByBrand(from, to),
   ]);
   const lockOf = new Map(locks.map((l) => [l.brandId, l]));
+  const usable = new Set(brands.map((b) => b.id));
   return {
     date: day,
     today,
@@ -73,7 +74,10 @@ export async function getInputPage(
     brands,
     producers,
     squads: [...new Set(producers.map((p) => p.squad.trim()).filter(Boolean))].sort(),
-    brandMonth: brandCounts.map((b) => ({ ...b, lock: lockOf.get(b.brandId) ?? null })),
+    // AEs only see and confirm their own brands.
+    brandMonth: brandCounts
+      .filter((b) => usable.has(b.brandId))
+      .map((b) => ({ ...b, lock: lockOf.get(b.brandId) ?? null })),
     lockedBrandIds: locks.map((l) => l.brandId),
     canChangeLocked: canChangeLocked(user.role),
   };

@@ -22,6 +22,12 @@ export const NAV_ITEMS: NavItem[] = [
     description: "ลงสล็อตไลฟ์ตาม PD และยืนยัน/ล็อกสล็อตของแต่ละแบรนด์",
   },
   {
+    id: "mcSheet",
+    href: "/mc-sheet",
+    label: "MC Slot Sheet",
+    description: "สล็อตที่แบรนด์ยืนยันแล้ว เรียงเป็นชีต พร้อมลง MC และส่งออกไป Google Sheet",
+  },
+  {
     id: "staffShift",
     href: "/staff-shift",
     label: "Producer Shift",
