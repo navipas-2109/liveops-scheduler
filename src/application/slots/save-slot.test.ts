@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { BookingWindow } from "@/domain/booking";
 import { toLiveMinutes as t } from "@/domain/time";
 import type { SessionUser } from "../auth/login";
-import type { McRepository, NotifyChannel, SlotRecord, SlotRepository, SlotWriteSession } from "../ports";
+import type { McRepository, NotifyChannel, PdBlock, SlotRecord, SlotRepository, SlotWriteSession } from "../ports";
 import { assignMc, getBusyMcs } from "./assign-mc";
 import { deleteSlot } from "./delete-slot";
 import { joinSlot } from "./join-slot";
@@ -20,6 +20,7 @@ function fakeDeps(today = "2026-10-29") {
   const locked = new Set<string>();
   const cleared: string[] = [];
   const shiftsConfirmed = new Set(["2026-11"]);
+  const blocks: PdBlock[] = [];
   let seq = 0;
   const session: SlotWriteSession = {
     listOnDate: async (date) => rows.filter((r) => r.date === date).map((r) => ({ ...r })),
@@ -108,6 +109,11 @@ function fakeDeps(today = "2026-10-29") {
       lock: async (brandId, month) => void locked.add(`${brandId}|${month}`),
       unlock: async (brandId, month) => void locked.delete(`${brandId}|${month}`),
     },
+    pdBlocks: {
+      listInRange: async (from) => blocks.filter((b) => b.date === from),
+      createMany: async () => 0,
+      remove: async () => {},
+    },
     shiftMonths: {
       find: async (month) => (shiftsConfirmed.has(month) ? { month, confirmedByName: "Planner", confirmedAt: "" } : null),
       confirm: async (month) => void shiftsConfirmed.add(month),
@@ -130,7 +136,7 @@ function fakeDeps(today = "2026-10-29") {
     notifier: { notify: async (channels, text) => void sent.push({ channels, text }) },
     clock: { today: () => today, nowMinute: () => 12 * 60 },
   };
-  return { deps, rows, sent, locked, cleared, shiftsConfirmed };
+  return { deps, rows, sent, locked, cleared, shiftsConfirmed, blocks };
 }
 
 function input(overrides: Partial<SlotInput> = {}): SlotInput {
@@ -364,5 +370,39 @@ describe("AE booking waits for confirmed shifts", () => {
     expect((await saveSlot(env.deps, manager, input())).ok).toBe(true); // office staff aren't held up
     env.shiftsConfirmed.add("2026-11");
     expect((await saveSlot(env.deps, ae, input({ roomId: "R02" }))).ok).toBe(true);
+  });
+});
+
+describe("time a Planner closed for a PD", () => {
+  const planner: SessionUser = { userId: "p1", name: "Planner", role: "PLANNER" };
+  const block = (over: Partial<PdBlock> = {}): PdBlock => ({
+    id: "b1",
+    producerId: "pd2",
+    producerName: "pd2",
+    date: "2026-11-10",
+    startMinute: t("09:00"),
+    endMinute: t("12:00"),
+    note: "อบรม",
+    createdByName: "Planner",
+    ...over,
+  });
+
+  it("stops booking that PD (first or second) during the closed time, for everyone", async () => {
+    const env = fakeDeps();
+    env.blocks.push(block());
+    const r = await saveSlot(env.deps, ae, input({ producerId: "pd2" }));
+    expect(r).toEqual({ ok: false, error: "pd2 ถูก Planner ปิดเวลา 09:00–12:00 (อบรม) — เลือก PD คนอื่นหรือเวลาอื่น" });
+    expect((await saveSlot(env.deps, planner, input({ producerId: "pd1", secondPdId: "pd2" }))).ok).toBe(false);
+    expect((await saveSlot(env.deps, ae, input({ producerId: "pd1" }))).ok).toBe(true); // another PD is fine
+    expect((await saveSlot(env.deps, ae, input({ roomId: "R02", producerId: "pd2", startMinute: t("12:00"), endMinute: t("14:00") }))).ok).toBe(true);
+  });
+
+  it("a PD can't join a live as PD 2 while closed, but a live booked earlier can still be edited", async () => {
+    const env = fakeDeps();
+    const r = await saveSlot(env.deps, planner, input({ producerId: "pd2" }));
+    const id = r.ok ? r.slot.id : "";
+    env.blocks.push(block({ producerId: "pd3", producerName: "pd3" }), block({ id: "b2" }));
+    expect((await joinSlot(env.deps, planner, id, "pd3")).ok).toBe(false);
+    expect((await saveSlot(env.deps, planner, input({ producerId: "pd2", requirement: "Fashion" }), id)).ok).toBe(true);
   });
 });

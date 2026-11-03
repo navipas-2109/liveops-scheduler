@@ -94,6 +94,7 @@ model User {
   slotLocks        SlotLock[]
   planApprovals    BrandPlan[]
   shiftMonths      ShiftMonth[]
+  pdBlocks         PdBlock[]
   approvedPayments Payment[]       @relation("PaymentApprovedBy")
 
   @@map("users")
@@ -153,6 +154,7 @@ model Producer {
   admin1Slots   Slot[]  @relation("SlotAdmin1")
   admin2Slots   Slot[]  @relation("SlotAdmin2")
   shifts        Shift[]
+  blocks        PdBlock[]
 
   @@map("producers")
 }
@@ -303,4 +305,21 @@ model ShiftMonth {
   confirmedAt   DateTime @default(now()) @map("confirmed_at")
 
   @@map("shift_months")
+}
+
+// Time a Planner closed for a Producer: no lives can be booked with them then.
+model PdBlock {
+  id          String   @id @default(cuid())
+  producerId  String   @map("producer_id")
+  producer    Producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  startMinute Int      @map("start_minute")
+  endMinute   Int      @map("end_minute")
+  note        String   @default("")
+  createdById String   @map("created_by")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([date])
+  @@map("pd_blocks")
 }

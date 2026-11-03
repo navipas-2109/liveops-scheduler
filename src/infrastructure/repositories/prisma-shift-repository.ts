@@ -1,5 +1,6 @@
 import type { ProducerPosition, ShiftKind as DbShiftKind } from "@prisma/client";
 import type {
+  PdBlockRepository,
   Producer,
   ProducerRepository,
   ShiftKind,
@@ -118,5 +119,34 @@ export const prismaShiftMonthRepository: ShiftMonthRepository = {
   },
   async unconfirm(month) {
     await prisma.shiftMonth.deleteMany({ where: { month } });
+  },
+};
+
+export const prismaPdBlockRepository: PdBlockRepository = {
+  async listInRange(from, to) {
+    const rows = await prisma.pdBlock.findMany({
+      where: { date: { gte: fromIsoDate(from), lte: fromIsoDate(to) } },
+      include: { producer: { select: { name: true } }, createdBy: { select: { name: true } } },
+      orderBy: [{ date: "asc" }, { startMinute: "asc" }],
+    });
+    return rows.map((b) => ({
+      id: b.id,
+      producerId: b.producerId,
+      producerName: b.producer.name,
+      date: toIsoDate(b.date),
+      startMinute: b.startMinute,
+      endMinute: b.endMinute,
+      note: b.note,
+      createdByName: b.createdBy.name,
+    }));
+  },
+  async createMany(blocks, userId) {
+    const r = await prisma.pdBlock.createMany({
+      data: blocks.map((b) => ({ ...b, date: fromIsoDate(b.date), createdById: userId })),
+    });
+    return r.count;
+  },
+  async remove(ids) {
+    await prisma.pdBlock.deleteMany({ where: { id: { in: ids } } });
   },
 };

@@ -11,6 +11,8 @@ import type {
   ProducerRepository,
   Room,
   RoomRepository,
+  PdBlock,
+  PdBlockRepository,
   ShiftItem,
   ShiftMonthRepository,
   ShiftRepository,
@@ -37,7 +39,9 @@ export interface InputPageData {
   window: BookingWindow | null;
   windowOpen: boolean;
   canSetWindow: boolean;
-  shiftsConfirmed: boolean; // AEs can book only once the Planner confirmed the month's shifts
+  shiftsConfirmed: boolean;
+  closed: PdBlock[]; // PD time a Planner closed on this day
+  canClosePd: boolean; // AEs can book only once the Planner confirmed the month's shifts
   canChangeLocked: boolean;
 }
 
@@ -54,6 +58,7 @@ export async function getInputPage(
     plans: BrandPlanRepository;
     bookingWindows: BookingWindowRepository;
     shiftMonths: ShiftMonthRepository;
+    pdBlocks: PdBlockRepository;
     clock: Clock;
   },
   user: SessionUser,
@@ -62,7 +67,7 @@ export async function getInputPage(
   const today = deps.clock.today();
   const day = date ?? today;
   const month = day.slice(0, 7);
-  const [shifts, slots, rooms, brands, producers, locks, checks, windows, shiftMonth] = await Promise.all([
+  const [shifts, slots, rooms, brands, producers, locks, checks, windows, shiftMonth, closed] = await Promise.all([
     deps.shifts.listInRange(day, day),
     deps.slots.list({ from: day, to: day }),
     deps.rooms.listAll(),
@@ -72,6 +77,7 @@ export async function getInputPage(
     buildRows(deps, user, month),
     deps.bookingWindows.listAll(),
     deps.shiftMonths.find(month),
+    deps.pdBlocks.listInRange(day, day),
   ]);
   const window = windows.find((w) => w.targetMonth === month) ?? null;
   return {
@@ -92,5 +98,7 @@ export async function getInputPage(
     windowOpen: !!window && isWindowOpen(window, today),
     canSetWindow: user.role === "PLANNER" || user.role === "MANAGER",
     shiftsConfirmed: !!shiftMonth,
+    closed,
+    canClosePd: user.role === "PLANNER" || user.role === "MANAGER",
   };
 }

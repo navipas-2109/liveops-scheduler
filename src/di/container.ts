@@ -25,6 +25,7 @@ import { recordOnTime, recordPayment, type RecordInput } from "@/application/pay
 import type { Clock, ProducerInput, RoomInput, SlotStaff } from "@/application/ports";
 import { importProducers, previewProducerImport } from "@/application/shifts/import-producers";
 import { importShifts, previewShiftImport } from "@/application/shifts/import-shifts";
+import { closePdTime, reopenPdTime, type BlockInput } from "@/application/shifts/pd-blocks";
 import { getShiftMonth, setShiftMonthConfirmed } from "@/application/shifts/shift-month";
 import { saveProducer } from "@/application/shifts/producers";
 import { assignStaff, getStaffGrid, getStaffShiftPage } from "@/application/shifts/staff-shift";
@@ -61,6 +62,7 @@ import {
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
 import {
   prismaProducerRepository,
+  prismaPdBlockRepository,
   prismaShiftMonthRepository,
   prismaShiftRepository,
 } from "@/infrastructure/repositories/prisma-shift-repository";
@@ -86,6 +88,7 @@ const deps = {
   producers: prismaProducerRepository,
   locks: prismaSlotLockRepository,
   shiftMonths: prismaShiftMonthRepository,
+  pdBlocks: prismaPdBlockRepository,
   plans: prismaBrandPlanRepository,
   passwords: bcryptHasher,
   notifier: larkNotifier,
@@ -133,6 +136,8 @@ export const services = {
   importShifts: (user: SessionUser, input: { month: string; text: string }) =>
     importShifts(deps, user, input),
   getShiftMonth: (month: string) => getShiftMonth(deps, month),
+  closePdTime: (user: SessionUser, input: BlockInput) => closePdTime(deps, user, input),
+  reopenPdTime: (user: SessionUser, ids: string[]) => reopenPdTime(deps, user, ids),
   previewProducerImport: (user: SessionUser, rows: unknown[][]) => previewProducerImport(deps, user, rows),
   importProducers: (user: SessionUser, rows: unknown[][]) => importProducers(deps, user, rows),
   setShiftMonthConfirmed: (user: SessionUser, month: string, confirmed: boolean) =>

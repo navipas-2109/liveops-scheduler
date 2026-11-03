@@ -18,6 +18,17 @@ interface Props {
   onAdd: ((row: TimelineRow, minute: number) => void) | null;
   emptyText: string;
   isLocked?: (slot: SlotListItem) => boolean;
+  // Time closed for a PD row (by producer id); clicking one calls onClosed.
+  closed?: Record<string, ClosedRange[]>;
+  onClosed?: (range: ClosedRange) => void;
+}
+
+export interface ClosedRange {
+  id: string;
+  startMinute: number;
+  endMinute: number;
+  note: string;
+  producerName: string;
 }
 
 const LANE_HEIGHT = 34;
@@ -26,7 +37,8 @@ const LANE_HEIGHT = 34;
 // 07:00–02:00 across. Slots span their real length; a row's shift, if any,
 // is shaded behind its slots.
 export function DayTimeline(props: Props) {
-  const { date, rows, rowLabel, slotCount, colors, blockDetail, selectedId, onSelect, onAdd, emptyText, isLocked } = props;
+  const { date, rows, rowLabel, slotCount, colors, blockDetail, selectedId, onSelect, onAdd, emptyText, isLocked, closed, onClosed } =
+    props;
   const gridColumns = { gridTemplateColumns: `repeat(${HOURS.length}, minmax(0, 1fr))` };
 
   return (
@@ -94,6 +106,23 @@ export function DayTimeline(props: Props) {
                         ),
                       )}
                     </div>
+                    {(row.producerId ? (closed?.[row.producerId] ?? []) : []).map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onClosed?.(c)}
+                        title={`ปิดเวลา ${timeRange(c.startMinute, c.endMinute)}${c.note ? ` · ${c.note}` : ""}`}
+                        className="absolute inset-y-0.5 z-[5] overflow-hidden rounded border border-muted/40 px-1.5 text-left text-[10px] text-soft"
+                        style={{
+                          ...place(c.startMinute, c.endMinute),
+                          background:
+                            "repeating-linear-gradient(135deg, rgb(148 163 184 / 0.18) 0 6px, rgb(148 163 184 / 0.06) 6px 12px)",
+                        }}
+                      >
+                        <span className="block truncate font-semibold">⛔ ปิด {timeRange(c.startMinute, c.endMinute)}</span>
+                        {c.note && <span className="block truncate opacity-80">{c.note}</span>}
+                      </button>
+                    ))}
                     {lanes.map((lane, i) =>
                       lane.map((s) => {
                         const offShift = outsideShift(s, row.shift);

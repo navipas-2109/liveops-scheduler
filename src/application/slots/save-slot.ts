@@ -9,6 +9,8 @@ import type {
   BrandRepository,
   Clock,
   Notifier,
+  PdBlock,
+  PdBlockRepository,
   Room,
   ProducerRepository,
   RoomRepository,
@@ -17,6 +19,7 @@ import type {
   SlotRecord,
   SlotRepository,
 } from "../ports";
+import { closedFor } from "../shifts/pd-blocks";
 import { recomputeStatuses } from "./recompute-statuses";
 
 export interface SlotInput {
@@ -41,12 +44,17 @@ export interface SaveSlotDeps {
   locks: SlotLockRepository;
   plans: BrandPlanRepository;
   shiftMonths: ShiftMonthRepository;
+  pdBlocks: PdBlockRepository;
   producers: ProducerRepository;
   notifier: Notifier;
   clock: Clock;
 }
 
 const CAN_BOOK = ["AE", "MANAGER", "PLANNER", "OPERATION"];
+
+export function closedMessage(b: PdBlock): string {
+  return `${b.producerName} ถูก Planner ปิดเวลา ${timeRangeLabel(b.startMinute, b.endMinute)}${b.note ? ` (${b.note})` : ""} — เลือก PD คนอื่นหรือเวลาอื่น`;
+}
 
 // AEs book a month only after the Planner has confirmed its Producer shifts.
 export async function waitingForShifts(
@@ -147,6 +155,20 @@ export async function saveSlot(
     ...(existing ? [existing.date] : []),
   ]);
   if (shiftsPending) return { ok: false, error: shiftsPending };
+  const pd1 = input.producerId !== undefined ? input.producerId : (existing?.producerId ?? null);
+  const pd2 = input.secondPdId !== undefined ? input.secondPdId : (existing?.admin1Id ?? null);
+  // A live that keeps its PDs and time isn't held up by time closed later.
+  const pdsOrTimeChanged =
+    !existing ||
+    existing.date !== input.date ||
+    existing.startMinute !== input.startMinute ||
+    existing.endMinute !== input.endMinute ||
+    existing.producerId !== pd1 ||
+    existing.admin1Id !== pd2;
+  if (pdsOrTimeChanged) {
+    const closed = await closedFor(deps.pdBlocks, input, [pd1, pd2]);
+    if (closed) return { ok: false, error: closedMessage(closed) };
+  }
   const locked = await lockedFor(deps.locks, user, [
     { brandId: input.brandId, date: input.date },
     ...(existing ? [{ brandId: existing.brandId, date: existing.date }] : []),

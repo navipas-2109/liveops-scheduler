@@ -69,6 +69,26 @@ export interface BrandPlanRepository {
   setApproved(brandId: string, month: string, userId: string | null): Promise<void>;
 }
 
+// Time a Planner closed for a Producer (live-day minutes, like slots).
+export interface PdBlock {
+  id: string;
+  producerId: string;
+  producerName: string;
+  date: string;
+  startMinute: number;
+  endMinute: number;
+  note: string;
+  createdByName: string;
+}
+
+export type NewPdBlock = Pick<PdBlock, "producerId" | "date" | "startMinute" | "endMinute" | "note">;
+
+export interface PdBlockRepository {
+  listInRange(from: string, to: string): Promise<PdBlock[]>;
+  createMany(blocks: NewPdBlock[], userId: string): Promise<number>;
+  remove(ids: string[]): Promise<void>;
+}
+
 export interface ShiftMonthInfo {
   month: string;
   confirmedByName: string;

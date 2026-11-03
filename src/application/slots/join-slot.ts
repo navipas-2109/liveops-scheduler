@@ -1,6 +1,13 @@
 import type { SessionUser } from "../auth/login";
-import type { ProducerRepository, ShiftMonthRepository, SlotLockRepository, SlotRepository } from "../ports";
-import { lockedFor, waitingForShifts } from "./save-slot";
+import type {
+  PdBlockRepository,
+  ProducerRepository,
+  ShiftMonthRepository,
+  SlotLockRepository,
+  SlotRepository,
+} from "../ports";
+import { closedFor } from "../shifts/pd-blocks";
+import { closedMessage, lockedFor, waitingForShifts } from "./save-slot";
 
 const CAN_BOOK = ["AE", "MANAGER", "PLANNER", "OPERATION"];
 
@@ -12,6 +19,7 @@ export async function joinSlot(
     producers: ProducerRepository;
     locks: SlotLockRepository;
     shiftMonths: ShiftMonthRepository;
+    pdBlocks: PdBlockRepository;
   },
   user: SessionUser,
   slotId: string,
@@ -24,6 +32,8 @@ export async function joinSlot(
   if (slot.status === "completed") return { ok: false, error: "ไลฟ์นี้จบและบันทึกแล้ว" };
   const shiftsPending = await waitingForShifts(deps.shiftMonths, user, [slot.date]);
   if (shiftsPending) return { ok: false, error: shiftsPending };
+  const closed = await closedFor(deps.pdBlocks, slot, [producerId]);
+  if (closed) return { ok: false, error: closedMessage(closed) };
   const locked = await lockedFor(deps.locks, user, [slot]);
   if (locked) return { ok: false, error: locked };
   if (!(await deps.producers.listAll()).some((p) => p.id === producerId)) {
