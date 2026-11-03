@@ -51,3 +51,27 @@ export async function deleteProducersAction(selected: string[]) {
   if (result.ok) refresh();
   return result;
 }
+
+// Cells from the uploaded sheet, as text; capped so a huge file can't be sent.
+function sheetRows(rows: unknown): string[][] | null {
+  if (!Array.isArray(rows) || rows.length > 2100) return null;
+  return rows.map((r) => (Array.isArray(r) ? r.slice(0, 20).map((c) => String(c ?? "").slice(0, 300)) : []));
+}
+
+export async function previewProducerImportAction(rows: string[][]) {
+  const user = await getSessionUser();
+  if (!user) return { ok: false as const, error: "กรุณาเข้าสู่ระบบใหม่" };
+  const cells = sheetRows(rows);
+  if (!cells) return { ok: false as const, error: "ไฟล์ใหญ่เกินไป" };
+  return services.previewProducerImport(user, cells);
+}
+
+export async function importProducersAction(rows: string[][]) {
+  const user = await getSessionUser();
+  if (!user) return { ok: false as const, error: "กรุณาเข้าสู่ระบบใหม่" };
+  const cells = sheetRows(rows);
+  if (!cells) return { ok: false as const, error: "ไฟล์ใหญ่เกินไป" };
+  const result = await services.importProducers(user, cells);
+  if (result.ok) refresh();
+  return result;
+}

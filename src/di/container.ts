@@ -23,6 +23,7 @@ import { advancePayment } from "@/application/payments/approve-payment";
 import { getPaymentPage, type PaymentTab } from "@/application/payments/get-payment-page";
 import { recordOnTime, recordPayment, type RecordInput } from "@/application/payments/record-payment";
 import type { Clock, ProducerInput, RoomInput, SlotStaff } from "@/application/ports";
+import { importProducers, previewProducerImport } from "@/application/shifts/import-producers";
 import { importShifts, previewShiftImport } from "@/application/shifts/import-shifts";
 import { getShiftMonth, setShiftMonthConfirmed } from "@/application/shifts/shift-month";
 import { saveProducer } from "@/application/shifts/producers";
@@ -132,6 +133,8 @@ export const services = {
   importShifts: (user: SessionUser, input: { month: string; text: string }) =>
     importShifts(deps, user, input),
   getShiftMonth: (month: string) => getShiftMonth(deps, month),
+  previewProducerImport: (user: SessionUser, rows: unknown[][]) => previewProducerImport(deps, user, rows),
+  importProducers: (user: SessionUser, rows: unknown[][]) => importProducers(deps, user, rows),
   setShiftMonthConfirmed: (user: SessionUser, month: string, confirmed: boolean) =>
     setShiftMonthConfirmed(deps, user, month, confirmed),
   listProducers: () => deps.producers.listAll(),
