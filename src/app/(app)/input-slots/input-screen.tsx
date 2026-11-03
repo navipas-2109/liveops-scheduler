@@ -38,6 +38,7 @@ export function InputScreen({ data }: { data: InputPageData }) {
   const [form, setForm] = useState<SlotFormValues | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
+  const [team, setTeam] = useState("");
 
   const closed: Record<string, ClosedRange[]> = {};
   for (const b of data.closed) (closed[b.producerId] ??= []).push(b);
@@ -55,13 +56,23 @@ export function InputScreen({ data }: { data: InputPageData }) {
   const colors = roomColors(data.rooms);
   const locked = new Set(data.lockedBrandIds);
   const isLocked = (s: SlotListItem) => locked.has(s.brandId);
-  const squadOf = new Map(data.producers.map((p) => [p.id, p.squad]));
-  const rows = pdRows(data.slots, data.shifts).filter(
+  const byId = new Map(data.producers.map((p) => [p.id, p]));
+  // Only PDs on the day's shift (from Producer Shift) get a row; the
+  // "no PD yet" row stays so unassigned lives can be fixed.
+  const allRows = pdRows(data.slots, data.shifts);
+  const rows = allRows.filter(
     (r) =>
-      !squad ||
-      !r.producerId ||
-      (squadOf.get(r.producerId) ?? r.squad ?? "") === squad,
+      (r.shift !== null || !r.producerId) &&
+      (!squad || !r.producerId || (byId.get(r.producerId)?.squad ?? r.squad ?? "") === squad) &&
+      (!team || !r.producerId || byId.get(r.producerId)?.team === team),
   );
+  // Lives booked with someone who isn't on shift that day.
+  const offShift = allRows
+    .filter((r) => r.shift === null && r.producerId)
+    .flatMap((r) => r.slots.map((slot) => ({ slot, pd: r.title })));
+  const onShift = new Set(data.shifts.filter((x) => x.shiftStart !== null).map((x) => x.producerId));
+  const shiftSquads = [...new Set(data.shifts.filter((x) => x.shiftStart !== null).map((x) => x.squad).filter(Boolean))].sort();
+  const shiftTeams = [...new Set([...onShift].map((id) => byId.get(id)?.team).filter((t): t is string => !!t))].sort();
 
   function add(row: TimelineRow, minute: number) {
     setNotice(null);
@@ -164,6 +175,19 @@ export function InputScreen({ data }: { data: InputPageData }) {
               <Ban size={13} /> ปิดเวลา PD
             </button>
           )}
+          <select
+            value={team}
+            onChange={(e) => setTeam(e.target.value)}
+            aria-label="Team"
+            className="rounded-md border border-line-strong bg-field px-2 py-1.5 text-xs text-ink outline-none"
+          >
+            <option value="">ทุก Team</option>
+            {shiftTeams.map((t) => (
+              <option key={t} value={t}>
+                Team {t}
+              </option>
+            ))}
+          </select>
           <label className="flex items-center gap-2 text-[11px] text-muted">
             Brand Squad
             <select
@@ -172,7 +196,7 @@ export function InputScreen({ data }: { data: InputPageData }) {
               className="max-w-[240px] rounded-md border border-line-strong bg-field px-2 py-1.5 text-xs text-ink outline-none"
             >
               <option value="">ทุก Squad</option>
-              {data.squads.map((s) => (
+              {shiftSquads.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
@@ -193,6 +217,24 @@ export function InputScreen({ data }: { data: InputPageData }) {
           กะ Producer เดือน {monthLabel(data.month)} ยังไม่ยืนยัน — AE
           จะลงสล็อตได้หลัง Planner กด “ยืนยันกะเดือนนี้” ที่หน้า Producer Shift
         </p>
+      )}
+
+      {offShift.length > 0 && (
+        <div className="rounded-lg border border-waiting-fg/30 bg-waiting-bg px-3 py-2 text-xs text-waiting-fg">
+          <p className="font-semibold">มี {offShift.length} สล็อตที่ลง PD ซึ่งไม่มีกะวันนี้ — คลิกเพื่อแก้ PD</p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {offShift.map(({ slot, pd }) => (
+              <button
+                key={slot.id}
+                type="button"
+                onClick={() => open(slot)}
+                className="rounded-md bg-black/10 px-2 py-0.5 text-[11px] hover:bg-black/20"
+              >
+                {pd} · {slot.brandName} {timeRange(slot.startMinute, slot.endMinute)}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {notice && (
@@ -316,7 +358,9 @@ export function InputScreen({ data }: { data: InputPageData }) {
               : data.brands.filter((b) => !locked.has(b.id))
           }
           rooms={data.rooms}
-          producers={data.producers}
+          producers={data.producers.filter(
+            (p) => onShift.has(p.id) || p.id === form.producerId || p.id === form.secondPdId,
+          )}
           onClose={() => setForm(null)}
         />
       )}

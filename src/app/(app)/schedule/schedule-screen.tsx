@@ -11,7 +11,7 @@ import { fromIsoDate, toIsoDate } from "@/domain/time";
 import { dayLabel, monthLabel, shortDateLabel, STATUS_META, STATUS_ORDER } from "../../format";
 import { DayTimeline } from "./day-timeline";
 import { MonthGrid } from "./month-grid";
-import { roomColors, type TimelineRow } from "./schedule-shared";
+import { pdRows, roomColors, type TimelineRow } from "./schedule-shared";
 import { SlotDetail } from "./slot-detail";
 import { WeekTimeline } from "./week-timeline";
 
@@ -25,8 +25,9 @@ function shift(view: ScheduleView, date: string, dir: number): string {
   return toIsoDate(d);
 }
 
-// Read-only schedule by room, filterable by room, brand and channel. Slots
-// are entered on Input Live Slot.
+// Read-only schedule by room (all rooms of the Room Database) or, for a day,
+// by Producer; filterable by room, brand, channel and the PD's team / squad.
+// Slots are entered on Input Live Slot.
 export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: Role }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -49,7 +50,8 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
     ...new Set(data.brands.filter((b) => !data.brandName || b.brandName === data.brandName).map((b) => b.platform)),
   ].sort();
 
-  const dayRows: TimelineRow[] = (data.roomId ? data.rooms.filter((r) => r.id === data.roomId) : data.rooms).map(
+  const byPd = data.grouping === "pd";
+  const roomRows: TimelineRow[] = (data.roomId ? data.rooms.filter((r) => r.id === data.roomId) : data.rooms).map(
     (room) => ({
       id: room.id,
       title: room.shortName,
@@ -60,9 +62,8 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
       roomId: room.id,
     }),
   );
-  // With a brand or channel filter, only rooms that have its lives are worth showing.
-  const filtering = !!(data.brandName || data.platform);
-  const visibleRows = filtering ? dayRows.filter((r) => r.slots.length > 0) : dayRows;
+  const visibleRows = byPd ? pdRows(data.slots, data.shifts) : roomRows;
+  const filtering = !!(data.brandName || data.platform || data.team || data.squad);
 
   const title =
     data.view === "day"
@@ -112,6 +113,21 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+          {data.view === "day" && (
+            <div className="mr-2 flex overflow-hidden rounded-lg border border-line-strong">
+              {([["room", "ตามห้อง"], ["pd", "ตาม Producer"]] as const).map(([by, label]) => (
+                <Link
+                  key={by}
+                  href={href({ by: by === "pd" ? "pd" : null })}
+                  className={`px-3 py-1.5 text-xs font-medium ${
+                    (by === "pd") === byPd ? "bg-primary text-white" : "bg-field text-muted hover:text-soft"
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
           <span className="text-[11px] text-muted">กรอง</span>
           <select value={data.brandName ?? ""} onChange={(e) => go({ brand: e.target.value || null, channel: null })} aria-label="กรองตามแบรนด์" className={select}>
             <option value="">ทุกแบรนด์</option>
@@ -133,8 +149,22 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
               </option>
             ))}
           </select>
+          <select value={data.team ?? ""} onChange={(e) => go({ team: e.target.value || null })} aria-label="กรองตาม Team" className={select}>
+            <option value="">ทุก Team</option>
+            {data.teams.map((t) => (
+              <option key={t} value={t}>
+                Team {t}
+              </option>
+            ))}
+          </select>
+          <select value={data.squad ?? ""} onChange={(e) => go({ squad: e.target.value || null })} aria-label="กรองตาม Squad" className={select}>
+            <option value="">ทุก Squad</option>
+            {data.squads.map((q) => (
+              <option key={q}>{q}</option>
+            ))}
+          </select>
           {(filtering || data.roomId) && (
-            <Link href={href({ brand: null, channel: null, room: null })} className="text-[11px] text-accent hover:underline">
+            <Link href={href({ brand: null, channel: null, room: null, team: null, squad: null })} className="text-[11px] text-accent hover:underline">
               ล้างตัวกรอง
             </Link>
           )}
@@ -153,14 +183,14 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
             <DayTimeline
               date={data.date}
               rows={visibleRows}
-              rowLabel="ห้อง"
+              rowLabel={byPd ? "Producer" : "ห้อง"}
               slotCount={data.slots.length}
               colors={colors}
-              blockDetail={(s) => s.mcName ?? "รอ MC"}
+              blockDetail={(s) => (byPd ? `${s.roomName} · ${s.mcName ?? "รอ MC"}` : (s.mcName ?? "รอ MC"))}
               selectedId={selected?.id ?? null}
               onSelect={setSelected}
               onAdd={null}
-              emptyText={filtering ? "ไม่มีไลฟ์ของแบรนด์/Channel นี้ในวันนี้" : "ไม่มีห้อง"}
+              emptyText={byPd ? "ไม่มี Producer เข้ากะ/มีไลฟ์ในวันนี้ตามตัวกรอง" : "ไม่มีห้องใน Room Database"}
             />
           )}
         </div>

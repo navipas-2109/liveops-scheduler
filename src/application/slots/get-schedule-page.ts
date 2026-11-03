@@ -10,6 +10,8 @@ import type {
   Room,
   RoomRepository,
   ShiftItem,
+  Producer,
+  ProducerRepository,
   ShiftRepository,
   SlotListItem,
   SlotRepository,
@@ -44,6 +46,12 @@ export interface SchedulePageData {
   brands: Brand[]; // every brand/channel, for the filters
   brandName: string | null;
   platform: string | null;
+  // Producer filters: lives whose PD (1 or 2) is in this team / squad.
+  team: string | null;
+  squad: string | null;
+  teams: string[];
+  squads: string[];
+  producers: Producer[];
 }
 
 const BRANDS_PER_DAY = 3;
@@ -76,6 +84,7 @@ export async function getSchedulePage(
     brands: BrandRepository;
     bookingWindows: BookingWindowRepository;
     shifts: ShiftRepository;
+    producers: ProducerRepository;
     clock: Clock;
   },
   user: SessionUser,
@@ -86,6 +95,8 @@ export async function getSchedulePage(
     grouping: DayGrouping;
     brandName?: string | null;
     platform?: string | null;
+    team?: string | null;
+    squad?: string | null;
   },
 ): Promise<SchedulePageData> {
   const today = deps.clock.today();
@@ -93,7 +104,7 @@ export async function getSchedulePage(
   const { from, to } = rangeFor(query.view, date);
 
   const byPd = query.view === "day" && query.grouping === "pd";
-  const [rooms, windows, brands, slots, shifts] = await Promise.all([
+  const [rooms, windows, brands, allSlots, allShifts, producers] = await Promise.all([
     deps.rooms.listAll(),
     deps.bookingWindows.listAll(),
     deps.brands.listAll(),
@@ -105,7 +116,25 @@ export async function getSchedulePage(
       platform: query.platform ?? undefined,
     }),
     byPd ? deps.shifts.listInRange(from, to) : Promise.resolve([]),
+    deps.producers.listAll(),
   ]);
+  const team = query.team || null;
+  const squad = query.squad || null;
+  const inFilter = new Set(
+    producers.filter((p) => (!team || p.team === team) && (!squad || p.squad === squad)).map((p) => p.id),
+  );
+  const filtering = !!(team || squad);
+  const slots = filtering
+    ? allSlots.filter((s) => (s.producerId && inFilter.has(s.producerId)) || (s.admin1Id && inFilter.has(s.admin1Id)))
+    : allSlots;
+  const shifts = filtering ? allShifts.filter((s) => inFilter.has(s.producerId)) : allShifts;
+  const pdFilters = {
+    team,
+    squad,
+    teams: [...new Set(producers.map((p) => p.team).filter(Boolean))].sort(),
+    squads: [...new Set(producers.map((p) => p.squad).filter(Boolean))].sort(),
+    producers,
+  };
   const grouping: DayGrouping = byPd ? "pd" : "room";
   const roomId = query.roomId && rooms.some((r) => r.id === query.roomId) ? query.roomId : null;
 
@@ -126,6 +155,7 @@ export async function getSchedulePage(
       brands,
       brandName: query.brandName ?? null,
       platform: query.platform ?? null,
+      ...pdFilters,
     };
   }
 
@@ -153,5 +183,6 @@ export async function getSchedulePage(
     brands,
     brandName: query.brandName ?? null,
     platform: query.platform ?? null,
+    ...pdFilters,
   };
 }

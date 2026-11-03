@@ -25,9 +25,9 @@ describe("parseShiftSheet", () => {
     const r = parseShiftSheet(SHEET, "2026-11");
     if (!r.ok) throw new Error(r.error);
     expect(r.result.people).toEqual([
-      { employeeId: "110112", name: "M", title: "Producer Team Lead", squad: "" },
-      { employeeId: "110215", name: "First", title: "Producer", squad: "Uniqlo" },
-      { employeeId: null, name: "Waves", title: "Jr. Producer", squad: "Running (GQ, Puma )" },
+      { employeeId: "110112", name: "M", title: "Producer Team Lead", squad: "", team: null },
+      { employeeId: "110215", name: "First", title: "Producer", squad: "Uniqlo", team: null },
+      { employeeId: null, name: "Waves", title: "Jr. Producer", squad: "Running (GQ, Puma )", team: null },
     ]);
     const first = r.result.entries.filter((e) => e.person === 1);
     expect(first).toEqual([
@@ -91,5 +91,16 @@ describe("monthFromRows", () => {
     const header = ["Employee ID", "Name", "Title", "Squad", 1];
     expect(monthFromRows([["ตาราง"], ["เดือน", new Date("2026-12-01T00:00:00Z")], header])).toBe("2026-12");
     expect(monthFromRows([header, ["1", "M", "", "", new Date("2026-12-01T00:00:00Z")]])).toBeNull();
+  });
+});
+
+describe("parseShiftSheet with a Team column", () => {
+  it("reads each person's team", () => {
+    const text = ["Team\tEmployee ID\tName\tTitle\tSquad\t1\t2", "M\t110112\tM\tProducer Team Lead\t\t2\t1", "\t110215\tFirst\tProducer\tUniqlo\t4\t"].join("\n");
+    const r = parseShiftSheet(text, "2026-11");
+    expect(r.ok && r.result.people.map((p) => [p.name, p.team])).toEqual([
+      ["M", "M"],
+      ["First", null],
+    ]);
   });
 });

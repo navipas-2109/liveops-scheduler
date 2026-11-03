@@ -14,6 +14,26 @@ export type StaffView = "month" | "week" | "day";
 
 const VIEW_LABEL: Record<StaffView, string> = { month: "เดือน", week: "สัปดาห์", day: "วัน" };
 
+// Shift views and the Producer list share one page.
+export function StaffTabs({ view, date }: { view: StaffView | "people"; date: string | null }) {
+  const pathname = usePathname();
+  const tab = (v: StaffView | "people", label: string) => (
+    <Link
+      key={v}
+      href={`${pathname}?view=${v}${date && v !== "people" ? `&date=${date}` : ""}`}
+      className={`px-3 py-1.5 text-xs font-medium ${view === v ? "bg-primary text-white" : "bg-field text-muted hover:text-soft"}`}
+    >
+      {label}
+    </Link>
+  );
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-line-strong">
+      {(["month", "week", "day"] as const).map((v) => tab(v, `กะ · ${VIEW_LABEL[v]}`))}
+      {tab("people", "รายชื่อ Producer")}
+    </div>
+  );
+}
+
 function shift(view: StaffView, date: string, dir: number): string {
   const d = fromIsoDate(date);
   if (view === "day") d.setUTCDate(d.getUTCDate() + dir);
@@ -54,19 +74,7 @@ export function StaffToolbar({
   return (
     <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-lg border border-line-strong">
-          {(["month", "week", "day"] as const).map((v) => (
-            <Link
-              key={v}
-              href={href(v, date)}
-              className={`px-3 py-1.5 text-xs font-medium ${
-                view === v ? "bg-primary text-white" : "bg-field text-muted hover:text-soft"
-              }`}
-            >
-              {VIEW_LABEL[v]}
-            </Link>
-          ))}
-        </div>
+        <StaffTabs view={view} date={date} />
         <Link href={href(view, shift(view, date, -1))} aria-label="ก่อนหน้า" className="rounded-md border border-line-strong p-1.5 text-soft hover:bg-field">
           <ChevronLeft size={14} />
         </Link>

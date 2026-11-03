@@ -13,7 +13,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: "schedule",
     href: "/schedule",
     label: "Live Schedule",
-    description: "ตารางไลฟ์แยกตามห้อง กรองแบรนด์/Channel ได้",
+    description: "ตารางไลฟ์ตามห้องหรือตาม Producer · กรองแบรนด์ Channel Team Squad ได้",
   },
   {
     id: "inputSlots",
@@ -36,14 +36,8 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "staffShift",
     href: "/staff-shift",
-    label: "Producer Shift",
-    description: "กะของ Producer และจำนวนสล็อตในแต่ละวัน",
-  },
-  {
-    id: "producerDatabase",
-    href: "/producers",
-    label: "Producer Database",
-    description: "เพิ่ม/ลบ/แก้ไขพนักงาน",
+    label: "Producer",
+    description: "กะประจำเดือนและรายชื่อ Producer — อัปเดตทุกเดือนด้วยไฟล์กะ",
   },
   { id: "roomDatabase", href: "/rooms", label: "Room Database", description: "เพิ่ม/ลบ/แก้ไขห้องไลฟ์" },
   {

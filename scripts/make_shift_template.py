@@ -5,7 +5,8 @@ Run after changing shift codes (keep in step with src/domain/shift-sheet.ts):
     python3 scripts/make_shift_template.py
 
 The layout must stay readable by parseShiftSheet: a header row with
-"Employee ID", "Name", "Title", "Squad" followed by the day numbers 1..31.
+"Employee ID", "Name", "Title", "Squad" (and optionally "Team") followed by
+the day numbers 1..31.
 """
 
 from datetime import date
@@ -33,7 +34,8 @@ POSITIONS = ["Producer Team Lead", "Senior Producer", "Producer", "Jr. Producer"
 HEADER_ROW = 4
 FIRST_DATA_ROW = 5
 DATA_ROWS = 200
-FIRST_DAY_COL = 5  # E
+FIRST_DAY_COL = 6  # F
+TEAMS = ["M", "Tae", "Cartoon"]
 DAYS = 31
 
 NAVY = "1C2333"
@@ -76,11 +78,11 @@ def build_shift_sheet(ws, month, rows=()):
     ws["C2"] = "← ใส่วันที่ 1 ของเดือน เช่น 1/11/2026 (วันในแถว 3 จะเปลี่ยนตาม)"
     ws["C2"].font = font(italic=True, color="7F7F7F", size=9)
 
-    ws["D3"] = "วัน"
-    ws["D3"].font = font(bold=True, color="7F7F7F")
-    ws["D3"].alignment = Alignment(horizontal="right")
+    ws["E3"] = "วัน"
+    ws["E3"].font = font(bold=True, color="7F7F7F")
+    ws["E3"].alignment = Alignment(horizontal="right")
 
-    headers = ["Employee ID", "Name", "Title", "Squad"]
+    headers = ["Employee ID", "Name", "Title", "Squad", "Team"]
     for i, h in enumerate(headers, start=1):
         c = ws.cell(HEADER_ROW, i, h)
         c.font = font(bold=True, color=WHITE)
@@ -105,6 +107,7 @@ def build_shift_sheet(ws, month, rows=()):
     ws.column_dimensions["B"].width = 18
     ws.column_dimensions["C"].width = 19
     ws.column_dimensions["D"].width = 26
+    ws.column_dimensions["E"].width = 10
     ws.row_dimensions[HEADER_ROW].height = 20
 
     for r in range(FIRST_DATA_ROW, last_row + 1):
@@ -116,11 +119,12 @@ def build_shift_sheet(ws, month, rows=()):
                 cell.alignment = Alignment(horizontal="center")
         ws.cell(r, 1).number_format = "@"  # keep IDs as typed (e.g. leading zeros)
 
-    for r, (eid, name, title, squad, codes) in enumerate(rows, start=FIRST_DATA_ROW):
+    for r, (eid, name, title, squad, team, codes) in enumerate(rows, start=FIRST_DATA_ROW):
         ws.cell(r, 1, eid)
         ws.cell(r, 2, name)
         ws.cell(r, 3, title)
         ws.cell(r, 4, squad or None)
+        ws.cell(r, 5, team or None)
         for d, code in enumerate(codes, start=1):
             if code:
                 ws.cell(r, FIRST_DAY_COL + d - 1, int(code) if code.isdigit() else code)
@@ -150,6 +154,11 @@ def build_shift_sheet(ws, month, rows=()):
     )
     ws.add_data_validation(title_dv)
     title_dv.add(f"C{FIRST_DATA_ROW}:C{last_row}")
+
+    # Teams: pick one or type a new team name.
+    team_dv = DataValidation(type="list", formula1='"' + ",".join(TEAMS) + '"', allow_blank=True, showErrorMessage=False)
+    ws.add_data_validation(team_dv)
+    team_dv.add(f"E{FIRST_DATA_ROW}:E{last_row}")
 
     # Colour each code; compare as text so 2 typed as a number still matches.
     top_left = f"{day_col(1)}{FIRST_DATA_ROW}"
@@ -203,10 +212,10 @@ def build_help_sheet(ws):
 
     steps = [
         "1. ไปที่แท็บ “Shift Planning” แล้วใส่วันที่ 1 ของเดือนในช่อง B2 (เช่น 1/11/2026)",
-        "2. กรอก 1 คนต่อ 1 แถว: Employee ID, Name (ชื่อเล่นที่ใช้ในทีม), Title, Squad",
+        "2. กรอก 1 คนต่อ 1 แถว: Employee ID, Name (ชื่อเล่นที่ใช้ในทีม), Title, Squad, Team (M / Tae / Cartoon)",
         "3. ใส่รหัสกะในช่องของแต่ละวัน (เลือกจากดรอปดาวน์ได้) · เว้นว่าง = ยังไม่ลงกะ",
         "4. ห้ามแก้แถวหัวตาราง (แถว 4) และห้ามเปลี่ยนเลขวันที่ 1–31 เป็นข้อความอื่น",
-        "5. นำเข้า: ใน LiveOps Scheduler ไปที่ Staff Shift → “นำเข้ากะจาก Google Sheet” → อัปโหลดไฟล์ .xlsx",
+        "5. นำเข้า: ใน LiveOps Scheduler ไปที่ Producer → “นำเข้ากะจาก Google Sheet” → อัปโหลดไฟล์ .xlsx",
         "   (ถ้าใช้บน Google Sheets: File → Download → Microsoft Excel (.xlsx) แล้วอัปโหลด)",
         "6. ตรวจหน้าตัวอย่างก่อนกดยืนยัน — การยืนยันจะแทนที่กะทั้งเดือนของคนที่อยู่ในไฟล์",
     ]
@@ -240,7 +249,8 @@ def build_help_sheet(ws):
     ws.cell(r, 1, "การจับคู่พนักงาน").font = font(bold=True, size=12, color=NAVY)
     notes = [
         "• ระบบจับคู่ด้วย Employee ID ก่อน — ชื่อเล่นเปลี่ยนก็ยังจับคู่ถูกคน",
-        "• คนที่ยังไม่มีในระบบจะถูกเพิ่มเป็นพนักงานใหม่ พร้อมตำแหน่งและ Squad จากไฟล์",
+        "• คนที่ยังไม่มีในระบบจะถูกเพิ่มเป็นพนักงานใหม่ พร้อมตำแหน่ง Squad และ Team จากไฟล์",
+        "• ทุกเดือนที่นำเข้า รายชื่อ Producer จะอัปเดตตามไฟล์ (ตำแหน่ง Squad Team รหัสพนักงาน)",
         "• แท็บ “ตัวอย่าง” มีไว้ดูเท่านั้น ระบบจะอ่านแท็บ “Shift Planning”",
     ]
     for i, s in enumerate(notes, start=r + 1):
@@ -258,11 +268,11 @@ def main():
 
     pattern = ["2", "2", "4", "3", "1", "1", "2"]
     example = [
-        ("110112", "M", "Producer Team Lead", "", ["1", "OF", "OF", "OF", "OF", "OF", "1"] * 4 + ["1", "OF"]),
-        ("110215", "First", "Producer", "Uniqlo", [pattern[(d + 1) % 7] for d in range(30)]),
-        ("110319", "Bookbik", "Jr. Producer", "Uniqlo", [pattern[(d + 3) % 7] for d in range(30)]),
-        ("110568", "Donut", "Jr. Producer", "Adidas Ch1 (TikTok)", ["VL", "VL"] + [pattern[(d + 5) % 7] for d in range(28)]),
-        ("110640", "Arm", "Jr. Producer", "Adidas Ch1 (TikTok)", [pattern[d % 7] for d in range(20)] + [""] * 10),
+        ("110112", "M", "Producer Team Lead", "", "M", ["1", "OF", "OF", "OF", "OF", "OF", "1"] * 4 + ["1", "OF"]),
+        ("110215", "First", "Producer", "Uniqlo", "M", [pattern[(d + 1) % 7] for d in range(30)]),
+        ("110319", "Bookbik", "Jr. Producer", "Uniqlo", "M", [pattern[(d + 3) % 7] for d in range(30)]),
+        ("110568", "Donut", "Jr. Producer", "Adidas Ch1 (TikTok)", "M", ["VL", "VL"] + [pattern[(d + 5) % 7] for d in range(28)]),
+        ("110640", "Arm", "Jr. Producer", "Adidas Ch1 (TikTok)", "M", [pattern[d % 7] for d in range(20)] + [""] * 10),
     ]
     sample = wb.create_sheet("ตัวอย่าง")
     build_shift_sheet(sample, month, example)

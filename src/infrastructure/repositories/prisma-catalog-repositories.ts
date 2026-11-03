@@ -93,7 +93,11 @@ export const prismaBuildingRepository: BuildingRepository = {
 
 export const prismaRoomRepository: RoomRepository = {
   async listAll() {
-    const rooms = await prisma.room.findMany({ orderBy: { sortOrder: "asc" }, include: withBuilding });
+    // Same order as the Room Database: building, floor, then room.
+    const rooms = await prisma.room.findMany({
+      orderBy: [{ building: { sortOrder: "asc" } }, { floor: "asc" }, { sortOrder: "asc" }],
+      include: withBuilding,
+    });
     return rooms.map(toRoom);
   },
   async create(input) {

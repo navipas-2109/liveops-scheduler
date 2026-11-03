@@ -117,6 +117,8 @@ export const services = {
       grouping: DayGrouping;
       brandName?: string | null;
       platform?: string | null;
+      team?: string | null;
+      squad?: string | null;
     },
   ) => getSchedulePage(deps, user, query),
   getMcPlanningPage: (

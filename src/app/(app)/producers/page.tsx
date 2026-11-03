@@ -1,9 +1,6 @@
-import { requirePage } from "@/app/require-page";
-import { services } from "@/di/container";
-import { ProducersView } from "./producers-view";
+import { redirect } from "next/navigation";
 
-export default async function ProducersPage() {
-  const user = await requirePage("producerDatabase");
-  const producers = await services.listProducers();
-  return <ProducersView producers={producers} canEdit={["OPERATION", "PLANNER", "MANAGER"].includes(user.role)} />;
+// The Producer list now lives on the Producer page, next to the shifts.
+export default function ProducersPage() {
+  redirect("/staff-shift?view=people");
 }

@@ -2,6 +2,7 @@
 // entry per person per day.
 //
 // Expected layout: a header row with "Employee ID", "Name", "Title", "Squad"
+// (and optionally "Team")
 // and then the day numbers 1..31; one row per person below it. Each day cell
 // holds a shift code. Blank cells mean the shift hasn't been entered yet and
 // are skipped.
@@ -31,6 +32,7 @@ export interface SheetPerson {
   name: string;
   title: string;
   squad: string;
+  team: string | null; // null when the sheet has no Team column or the cell is blank
 }
 
 export interface SheetEntry {
@@ -77,6 +79,7 @@ export function parseShiftSheet(text: string, month: string): SheetParse {
   const idCol = col("employee id");
   const titleCol = col("title");
   const squadCol = col("squad");
+  const teamCol = col("team");
 
   // Day columns: header cells holding 1..31 to the right of the name column.
   const dayCols: { index: number; day: number }[] = [];
@@ -99,6 +102,7 @@ export function parseShiftSheet(text: string, month: string): SheetParse {
       name,
       title: titleCol >= 0 ? (row[titleCol] ?? "") : "",
       squad: squadCol >= 0 ? (row[squadCol] ?? "") : "",
+      team: teamCol >= 0 && norm(row[teamCol] ?? "") ? norm(row[teamCol]) : null,
     });
     for (const { index, day } of dayCols) {
       const raw = (row[index] ?? "").toUpperCase();
