@@ -32,11 +32,18 @@ const POSITION: Record<string, ProducerPosition> = {
 
 // Each table is filled with one batched insert; rows that already exist are
 // left as they are (they may have been edited in the app since).
+// Same ids as the migration that introduced buildings.
+const BUILDINGS = [
+  { id: "bld_ripples_studio", name: "Ripples Studio", code: "RS", sortOrder: 1 },
+  { id: "bld_witree", name: "Witree", code: "WT", sortOrder: 2 },
+];
+
 async function seedRooms() {
+  await prisma.building.createMany({ data: BUILDINGS, skipDuplicates: true });
   await prisma.room.createMany({
     data: ROOMS_RAW.map((r, i) => ({
       id: "R" + String(i + 1).padStart(2, "0"),
-      building: r.building === "Witree" ? ("WITREE" as const) : ("RIPPLES_STUDIO" as const),
+      buildingId: BUILDINGS.find((b) => b.name === r.building)!.id,
       floor: r.floor,
       roomNo: r.roomNo,
       size: r.size === "Large" ? ("LARGE" as const) : ("SMALL" as const),

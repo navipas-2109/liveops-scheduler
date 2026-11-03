@@ -92,8 +92,8 @@ function fakeDeps(today = "2026-10-29") {
     },
     rooms: {
       listAll: async () => [
-        { id: "R01", shortName: "Room 1", building: "Ripples Studio", floor: 1, size: "Large", roomNo: "Room 1", brandAssignment: "" },
-        { id: "R02", shortName: "Room 2", building: "Ripples Studio", floor: 2, size: "Small", roomNo: "Room 2", brandAssignment: "" },
+        { id: "R01", shortName: "Room 1", buildingId: "b", building: "Ripples Studio", buildingCode: "RS", floor: 1, size: "Large", roomNo: "Room 1", brandAssignment: "" },
+        { id: "R02", shortName: "Room 2", buildingId: "b", building: "Ripples Studio", buildingCode: "RS", floor: 2, size: "Small", roomNo: "Room 2", brandAssignment: "" },
       ],
       create: async () => ({}) as never,
       update: async () => ({}) as never,

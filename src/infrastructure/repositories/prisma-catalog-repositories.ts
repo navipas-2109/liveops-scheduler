@@ -5,6 +5,7 @@ import type {
   BrandPlan,
   BrandPlanRepository,
   BrandRepository,
+  BuildingRepository,
   Mc,
   McRepository,
   Room,
@@ -40,17 +41,16 @@ export const prismaBrandRepository: BrandRepository = {
   },
 };
 
-const BUILDING_LABEL = { RIPPLES_STUDIO: "Ripples Studio", WITREE: "Witree" } as const;
 const SIZE_LABEL = { LARGE: "Large", SMALL: "Small" } as const;
-
-const BUILDING_ENUM = { "Ripples Studio": "RIPPLES_STUDIO", Witree: "WITREE" } as const;
 const SIZE_ENUM = { Large: "LARGE", Small: "SMALL" } as const;
 
-function toRoom(r: DbRoom): Room {
+function toRoom(r: DbRoom & { building: { name: string; code: string } }): Room {
   return {
     id: r.id,
     shortName: r.shortName,
-    building: BUILDING_LABEL[r.building],
+    buildingId: r.buildingId,
+    building: r.building.name,
+    buildingCode: r.building.code,
     floor: r.floor,
     size: SIZE_LABEL[r.size],
     roomNo: r.roomNo,
@@ -60,7 +60,7 @@ function toRoom(r: DbRoom): Room {
 
 function roomData(input: RoomInput) {
   return {
-    building: BUILDING_ENUM[input.building as keyof typeof BUILDING_ENUM] ?? "RIPPLES_STUDIO",
+    buildingId: input.buildingId,
     floor: input.floor,
     roomNo: input.roomNo,
     size: SIZE_ENUM[input.size as keyof typeof SIZE_ENUM] ?? "SMALL",
@@ -69,17 +69,41 @@ function roomData(input: RoomInput) {
   };
 }
 
+const withBuilding = { building: { select: { name: true, code: true } } } as const;
+
+export const prismaBuildingRepository: BuildingRepository = {
+  async listAll() {
+    const rows = await prisma.building.findMany({ orderBy: { sortOrder: "asc" }, include: { _count: { select: { rooms: true } } } });
+    return rows.map((b) => ({ id: b.id, name: b.name, code: b.code, roomCount: b._count.rooms }));
+  },
+  async create(name, code) {
+    const last = await prisma.building.aggregate({ _max: { sortOrder: true } });
+    await prisma.building.create({ data: { name, code, sortOrder: (last._max.sortOrder ?? 0) + 1 } });
+  },
+  async update(id, name, code) {
+    await prisma.building.update({ where: { id }, data: { name, code } });
+  },
+  async remove(id) {
+    await prisma.building.delete({ where: { id } });
+  },
+};
+
 export const prismaRoomRepository: RoomRepository = {
   async listAll() {
-    const rooms = await prisma.room.findMany({ orderBy: { sortOrder: "asc" } });
+    const rooms = await prisma.room.findMany({ orderBy: { sortOrder: "asc" }, include: withBuilding });
     return rooms.map(toRoom);
   },
   async create(input) {
     const last = await prisma.room.aggregate({ _max: { sortOrder: true } });
-    return toRoom(await prisma.room.create({ data: { ...roomData(input), sortOrder: (last._max.sortOrder ?? 0) + 1 } }));
+    return toRoom(
+      await prisma.room.create({
+        data: { ...roomData(input), sortOrder: (last._max.sortOrder ?? 0) + 1 },
+        include: withBuilding,
+      }),
+    );
   },
   async update(id, input) {
-    return toRoom(await prisma.room.update({ where: { id }, data: roomData(input) }));
+    return toRoom(await prisma.room.update({ where: { id }, data: roomData(input), include: withBuilding }));
   },
   async remove(id) {
     await prisma.room.delete({ where: { id } });

@@ -23,11 +23,6 @@ enum Role {
   MC
 }
 
-enum Building {
-  RIPPLES_STUDIO @map("Ripples Studio")
-  WITREE         @map("Witree")
-}
-
 enum RoomSize {
   LARGE @map("Large")
   SMALL @map("Small")
@@ -104,9 +99,22 @@ model User {
   @@map("users")
 }
 
+// Studio buildings; the team can add and rename them.
+model Building {
+  id        String @id @default(cuid())
+  name      String @unique
+  code      String // short label, e.g. "RS"
+  sortOrder Int    @map("sort_order")
+
+  rooms Room[]
+
+  @@map("buildings")
+}
+
 model Room {
   id              String   @id @default(cuid())
-  building        Building
+  buildingId      String   @map("building_id")
+  building        Building @relation(fields: [buildingId], references: [id])
   floor           Int
   roomNo          String   @map("room_no")
   size            RoomSize

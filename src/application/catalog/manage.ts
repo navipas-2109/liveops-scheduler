@@ -6,6 +6,7 @@ import { CHECK_MESSAGE } from "@/domain/brand-check";
 import { canChangeLocked } from "@/domain/slot-lock";
 import { buildRows } from "../brand-check/brand-check";
 import type {
+  BuildingRepository,
   BrandPlanRepository,
   BrandRepository,
   ProducerRepository,
@@ -22,8 +23,42 @@ const EDITORS = ["OPERATION", "PLANNER", "MANAGER"];
 const NO_RIGHTS = { ok: false as const, error: "คุณไม่มีสิทธิ์แก้ข้อมูลนี้" };
 const IN_USE = (n: number) => ({ ok: false as const, error: `ลบไม่ได้ — ใช้อยู่ใน ${n} ไลฟ์` });
 
+export async function saveBuilding(
+  deps: { buildings: BuildingRepository },
+  user: SessionUser,
+  input: { name: string; code: string },
+  id?: string,
+): Promise<Result> {
+  if (!EDITORS.includes(user.role)) return NO_RIGHTS;
+  const name = input.name.replace(/\s+/g, " ").trim();
+  const code = input.code.replace(/\s+/g, "").toUpperCase();
+  if (!name || name.length > 60) return { ok: false, error: "กรุณากรอกชื่อตึก (ไม่เกิน 60 ตัวอักษร)" };
+  if (!code || code.length > 4) return { ok: false, error: "ตัวย่อตึก 1–4 ตัวอักษร เช่น RS" };
+  const all = await deps.buildings.listAll();
+  if (all.some((b) => b.id !== id && b.name.toLowerCase() === name.toLowerCase())) {
+    return { ok: false, error: `มีตึก ${name} อยู่แล้ว` };
+  }
+  if (id && !all.some((b) => b.id === id)) return { ok: false, error: "ไม่พบตึกนี้" };
+  if (id) await deps.buildings.update(id, name, code);
+  else await deps.buildings.create(name, code);
+  return { ok: true, value: undefined };
+}
+
+export async function deleteBuilding(
+  deps: { buildings: BuildingRepository },
+  user: SessionUser,
+  id: string,
+): Promise<Result> {
+  if (!EDITORS.includes(user.role)) return NO_RIGHTS;
+  const building = (await deps.buildings.listAll()).find((b) => b.id === id);
+  if (!building) return { ok: false, error: "ไม่พบตึกนี้" };
+  if (building.roomCount > 0) return { ok: false, error: `ลบไม่ได้ — ยังมี ${building.roomCount} ห้องในตึกนี้` };
+  await deps.buildings.remove(id);
+  return { ok: true, value: undefined };
+}
+
 export async function saveRoom(
-  deps: { rooms: RoomRepository },
+  deps: { rooms: RoomRepository; buildings: BuildingRepository },
   user: SessionUser,
   input: RoomInput,
   id?: string,
@@ -31,7 +66,7 @@ export async function saveRoom(
   if (!EDITORS.includes(user.role)) return NO_RIGHTS;
   const roomNo = input.roomNo.trim();
   if (!roomNo) return { ok: false, error: "กรุณากรอกชื่อห้อง" };
-  if (!["Ripples Studio", "Witree"].includes(input.building)) return { ok: false, error: "อาคารไม่ถูกต้อง" };
+  if (!(await deps.buildings.listAll()).some((b) => b.id === input.buildingId)) return { ok: false, error: "กรุณาเลือกตึก" };
   if (!["Large", "Small"].includes(input.size)) return { ok: false, error: "ขนาดห้องไม่ถูกต้อง" };
   if (!Number.isInteger(input.floor) || input.floor < 0 || input.floor > 50) return { ok: false, error: "ชั้นไม่ถูกต้อง" };
   const clean = { ...input, roomNo, brandAssignment: input.brandAssignment.trim() };

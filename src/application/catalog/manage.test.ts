@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BrandPlan, BrandPlanRepository, BrandRepository, SlotListItem, SlotLockRepository, SlotRepository } from "../ports";
 import { approvePlan, confirmReady, setPlan } from "../brand-check/brand-check";
-import { setBrandLock } from "./manage";
+import { deleteBuilding, saveBuilding, setBrandLock } from "./manage";
 
 const brand = (id: string) => ({ id, brandName: id, platform: "TikTok" });
 
@@ -77,5 +77,42 @@ describe("confirming a brand's month", () => {
     expect((await setBrandLock(deps, op, "mine", M, false)).ok).toBe(false);
     expect((await setBrandLock(deps, planner, "mine", M, false)).ok).toBe(true);
     expect(locked.size).toBe(0);
+  });
+});
+
+describe("buildings", () => {
+  function buildings() {
+    const list = [
+      { id: "rs", name: "Ripples Studio", code: "RS", roomCount: 24 },
+      { id: "empty", name: "Old Annex", code: "OA", roomCount: 0 },
+    ];
+    return {
+      list,
+      deps: {
+        buildings: {
+          listAll: async () => list.map((b) => ({ ...b })),
+          create: async (name: string, code: string) => void list.push({ id: name, name, code, roomCount: 0 }),
+          update: async (id: string, name: string, code: string) => void Object.assign(list.find((b) => b.id === id)!, { name, code }),
+          remove: async (id: string) => void list.splice(list.findIndex((b) => b.id === id), 1),
+        },
+      },
+    };
+  }
+
+  it("adds and renames buildings, refusing duplicates", async () => {
+    const { list, deps } = buildings();
+    expect((await saveBuilding(deps, ae, { name: "Witree", code: "wt" })).ok).toBe(false); // AEs can't
+    expect((await saveBuilding(deps, planner, { name: " Witree ", code: "wt" })).ok).toBe(true);
+    expect(list.at(-1)).toMatchObject({ name: "Witree", code: "WT" });
+    expect((await saveBuilding(deps, planner, { name: "witree", code: "W2" })).ok).toBe(false);
+    expect((await saveBuilding(deps, planner, { name: "Ripples Studio 1", code: "RS1" }, "rs")).ok).toBe(true);
+    expect(list[0].name).toBe("Ripples Studio 1");
+  });
+
+  it("deletes only a building with no rooms", async () => {
+    const { list, deps } = buildings();
+    expect(await deleteBuilding(deps, planner, "rs")).toEqual({ ok: false, error: "ลบไม่ได้ — ยังมี 24 ห้องในตึกนี้" });
+    expect((await deleteBuilding(deps, planner, "empty")).ok).toBe(true);
+    expect(list.map((b) => b.id)).toEqual(["rs"]);
   });
 });

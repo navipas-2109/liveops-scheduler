@@ -9,7 +9,9 @@ import {
   addChannel,
   deleteChannel,
   deleteProducer,
+  deleteBuilding,
   deleteRoom,
+  saveBuilding,
   saveRoom,
   setBrandLock,
 } from "@/application/catalog/manage";
@@ -52,6 +54,7 @@ import {
   prismaRoomRepository,
   prismaSlotLockRepository,
   prismaBrandPlanRepository,
+  prismaBuildingRepository,
 } from "@/infrastructure/repositories/prisma-catalog-repositories";
 import {
   prismaProducerRepository,
@@ -72,6 +75,7 @@ const deps = {
   slots: prismaSlotRepository,
   brands: prismaBrandRepository,
   rooms: prismaRoomRepository,
+  buildings: prismaBuildingRepository,
   mcs: prismaMcRepository,
   bookingWindows: prismaBookingWindowRepository,
   payments: prismaPaymentRepository,
@@ -144,6 +148,10 @@ export const services = {
     approvePlan(deps, user, brandId, month, approve),
   confirmReady: (user: SessionUser, month: string) => confirmReady(deps, user, month),
   listRooms: () => deps.rooms.listAll(),
+  listBuildings: () => deps.buildings.listAll(),
+  saveBuilding: (user: SessionUser, input: { name: string; code: string }, id?: string) =>
+    saveBuilding(deps, user, input, id),
+  deleteBuilding: (user: SessionUser, id: string) => deleteBuilding(deps, user, id),
   listBrands: () => deps.brands.listAll(),
   saveRoom: (user: SessionUser, input: RoomInput, id?: string) => saveRoom(deps, user, input, id),
   deleteRoom: (user: SessionUser, id: string) => deleteRoom(deps, user, id),

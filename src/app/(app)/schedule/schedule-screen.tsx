@@ -129,7 +129,7 @@ export function ScheduleScreen({ data, role }: { data: SchedulePageData; role: R
             <option value="">ทุกห้อง ({data.rooms.length})</option>
             {data.rooms.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.building === "Witree" ? "WT" : "RS"} F{r.floor} · {r.shortName}
+                {r.buildingCode} F{r.floor} · {r.shortName}
               </option>
             ))}
           </select>

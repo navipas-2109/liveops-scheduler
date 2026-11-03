@@ -61,7 +61,7 @@ export function RoomHeatmap({ day, rooms, slots, canBook, onPickFree }: Props) {
                     title={`${room.building} F${room.floor} · ${room.size}`}
                     className="sticky left-0 z-10 max-w-[180px] truncate bg-card pr-2 text-left font-medium text-soft"
                   >
-                    <span className="text-muted">{room.building === "Witree" ? "WT" : "RS"} F{room.floor} · </span>
+                    <span className="text-muted">{room.buildingCode} F{room.floor} · </span>
                     {room.shortName}
                   </th>
                   {HOURS.map((h) => {

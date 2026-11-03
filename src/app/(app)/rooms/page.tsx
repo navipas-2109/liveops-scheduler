@@ -4,6 +4,6 @@ import { RoomsView } from "./rooms-view";
 
 export default async function RoomsPage() {
   await requirePage("roomDatabase");
-  const rooms = await services.listRooms();
-  return <RoomsView rooms={rooms} />;
+  const [rooms, buildings] = await Promise.all([services.listRooms(), services.listBuildings()]);
+  return <RoomsView rooms={rooms} buildings={buildings} />;
 }

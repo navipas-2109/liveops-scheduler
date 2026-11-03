@@ -13,7 +13,7 @@ export async function saveRoomAction(input: RoomInput, id?: string) {
   const result = await services.saveRoom(
     user,
     {
-      building: String(input.building ?? ""),
+      buildingId: String(input.buildingId ?? ""),
       floor: Number(input.floor),
       roomNo: String(input.roomNo ?? ""),
       size: String(input.size ?? ""),
@@ -24,6 +24,26 @@ export async function saveRoomAction(input: RoomInput, id?: string) {
   if (!result.ok) return result;
   refresh();
   return { ok: true as const };
+}
+
+export async function saveBuildingAction(input: { name: string; code: string }, id?: string) {
+  const user = await getSessionUser();
+  if (!user) return SIGNED_OUT;
+  const result = await services.saveBuilding(
+    user,
+    { name: String(input.name ?? ""), code: String(input.code ?? "") },
+    id ? String(id) : undefined,
+  );
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function deleteBuildingAction(id: string) {
+  const user = await getSessionUser();
+  if (!user) return SIGNED_OUT;
+  const result = await services.deleteBuilding(user, String(id));
+  if (result.ok) refresh();
+  return result;
 }
 
 export async function deleteRoomAction(id: string) {

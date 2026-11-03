@@ -80,10 +80,26 @@ export interface ShiftMonthRepository {
   unconfirm(month: string): Promise<void>;
 }
 
+export interface Building {
+  id: string;
+  name: string;
+  code: string; // short label, e.g. "RS"
+  roomCount: number;
+}
+
+export interface BuildingRepository {
+  listAll(): Promise<Building[]>;
+  create(name: string, code: string): Promise<void>;
+  update(id: string, name: string, code: string): Promise<void>;
+  remove(id: string): Promise<void>;
+}
+
 export interface Room {
   id: string;
   shortName: string;
-  building: string;
+  buildingId: string;
+  building: string; // building name
+  buildingCode: string;
   floor: number;
   size: string;
   roomNo: string;
@@ -91,7 +107,7 @@ export interface Room {
 }
 
 export interface RoomInput {
-  building: string; // "Ripples Studio" | "Witree"
+  buildingId: string;
   floor: number;
   roomNo: string;
   size: string; // "Large" | "Small"
