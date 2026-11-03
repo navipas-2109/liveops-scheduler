@@ -88,22 +88,29 @@ export function pdRows(slots: SlotListItem[], shifts: ShiftItem[]): TimelineRow[
       squad: sh.squad,
     });
   }
+  // A live with two PDs shows in both PDs' rows.
+  const seats = (s: SlotListItem) =>
+    s.producerId
+      ? [{ id: s.producerId, name: s.producerName }, ...(s.admin1Id ? [{ id: s.admin1Id, name: s.admin1Name }] : [])]
+      : [{ id: null, name: null }];
   for (const s of slots) {
-    const key = s.producerId ?? NO_PD;
-    if (!rows.has(key)) {
-      rows.set(key, {
-        id: key,
-        title: s.producerId ? (s.producerName ?? "—") : "ยังไม่มี PD",
-        subtitle: s.producerId ? "ไม่มีกะในวันนี้" : "สล็อตที่ยังไม่ได้ลง Producer",
-        accent: s.producerId ? "#f6c26b" : "#f59e9e",
-        shift: null,
-        slots: [],
-        roomId: null,
-        producerId: s.producerId,
-        warn: true,
-      });
+    for (const pd of seats(s)) {
+      const key = pd.id ?? NO_PD;
+      if (!rows.has(key)) {
+        rows.set(key, {
+          id: key,
+          title: pd.id ? (pd.name ?? "—") : "ยังไม่มี PD",
+          subtitle: pd.id ? "ไม่มีกะในวันนี้" : "สล็อตที่ยังไม่ได้ลง Producer",
+          accent: pd.id ? "#f6c26b" : "#f59e9e",
+          shift: null,
+          slots: [],
+          roomId: null,
+          producerId: pd.id,
+          warn: true,
+        });
+      }
+      rows.get(key)!.slots.push(s);
     }
-    rows.get(key)!.slots.push(s);
   }
   const rank = (r: TimelineRow) => (r.id === NO_PD ? 2 : r.shift ? 0 : 1);
   return [...rows.values()].sort(

@@ -6,7 +6,7 @@ import type { Brand, Producer, Room } from "@/application/ports";
 import type { RoomClash } from "@/application/slots/check-room";
 import { fromLiveMinutes } from "@/domain/time";
 import { TIME_CHOICES, timeRange } from "../../format";
-import { checkRoomAction, deleteSlotAction, saveSlotAction, type SlotFormValues } from "./actions";
+import { checkRoomAction, deleteSlotAction, joinSlotAction, saveSlotAction, type SlotFormValues } from "./actions";
 
 const CAMPAIGNS = ["Regular Live", "Flash Sale", "Brand Day", "Mega Campaign", "New Launch", "Collab Special"];
 
@@ -80,6 +80,24 @@ export function SlotDrawer({ initial, brands, rooms, producers, onClose }: Props
     else setError(result.error);
   }
 
+  async function join(slotId: string) {
+    if (!values.producerId) return;
+    setPending(true);
+    setError(null);
+    const result = await joinSlotAction(slotId, values.producerId);
+    setPending(false);
+    if (result.ok) onClose();
+    else setError(result.error);
+  }
+
+  // Same brand already live in this room at this time: offer to add this PD
+  // to that live (Input Live Slot only).
+  const joinable =
+    producers && !id && values.producerId && roomCheck.state === "done"
+      ? roomCheck.clashes.find((c) => c.brandId === values.brandId && c.pdNames.length < 2)
+      : undefined;
+  const pdName = producers?.find((p) => p.id === values.producerId)?.name;
+
   async function remove() {
     if (!id || !window.confirm("ลบสล็อตนี้?")) return;
     setPending(true);
@@ -134,22 +152,43 @@ export function SlotDrawer({ initial, brands, rooms, producers, onClose }: Props
           </div>
 
           {producers && (
-            <label className="grid gap-1.5">
-              <span className="text-[11px] text-soft">Producer (PD)</span>
-              <select
-                value={values.producerId ?? ""}
-                onChange={(e) => set({ producerId: e.target.value || null })}
-                className={field}
-              >
-                <option value="">— ยังไม่ระบุ —</option>
-                {producers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                    {p.squad && ` · ${p.squad}`}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="grid gap-1.5">
+                <span className="text-[11px] text-soft">PD คนที่ 1</span>
+                <select
+                  value={values.producerId ?? ""}
+                  onChange={(e) => set({ producerId: e.target.value || null })}
+                  className={field}
+                >
+                  <option value="">— ยังไม่ระบุ —</option>
+                  {producers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.squad && ` · ${p.squad}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-[11px] text-soft">PD คนที่ 2 (ถ้ามี)</span>
+                <select
+                  value={values.secondPdId ?? ""}
+                  onChange={(e) => set({ secondPdId: e.target.value || null })}
+                  disabled={!values.producerId}
+                  className={field}
+                >
+                  <option value="">— ไม่มี —</option>
+                  {producers
+                    .filter((p) => p.id !== values.producerId)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {p.squad && ` · ${p.squad}`}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
           )}
 
           <label className="grid gap-1.5">
@@ -192,6 +231,21 @@ export function SlotDrawer({ initial, brands, rooms, producers, onClose }: Props
           </div>
 
           <RoomStatus check={roomCheck} timeError={timeError} />
+          {joinable && (
+            <div className="grid gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2.5 text-xs">
+              <p className="text-soft">
+                ถ้าเป็นไลฟ์เดียวกัน (ใช้ PD 2 คน) ไม่ต้องจองห้องซ้ำ — เพิ่ม {pdName} เข้าไลฟ์นี้แทน
+              </p>
+              <button
+                type="button"
+                onClick={() => join(joinable.slotId)}
+                disabled={pending}
+                className="justify-self-start rounded-lg bg-primary px-3 py-1.5 font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+              >
+                เพิ่ม {pdName} เป็น PD คนที่ 2 · {joinable.brandName} {timeRange(joinable.startMinute, joinable.endMinute)}
+              </button>
+            </div>
+          )}
 
           <label className="grid gap-1.5">
             <span className="text-[11px] text-soft">แคมเปญ (ถ้ามี)</span>
@@ -262,7 +316,9 @@ function RoomStatus({ check, timeError }: { check: RoomCheck; timeError: string 
   return (
     <Notice tone="bad">
       ห้องนี้ถูกจองแล้ว:{" "}
-      {check.clashes.map((c) => `${c.brandName} ${timeRange(c.startMinute, c.endMinute)}`).join(", ")}
+      {check.clashes
+        .map((c) => `${c.brandName} ${timeRange(c.startMinute, c.endMinute)}${c.pdNames.length ? ` (PD ${c.pdNames.join(", ")})` : ""}`)
+        .join(", ")}
     </Notice>
   );
 }

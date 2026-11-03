@@ -56,4 +56,10 @@ describe("pdRows", () => {
     expect(outsideShift(slot("a", "tae", "21:00", "23:00"), { start: t("13:00"), end: t("22:00") })).toBe(true);
     expect(outsideShift(slot("a", "tae", "20:00", "22:00"), { start: t("13:00"), end: t("22:00") })).toBe(false);
   });
+
+  it("shows a live with two PDs in both rows", () => {
+    const live = { ...slot("a", "tae", "10:00", "12:00"), admin1Id: "m", admin1Name: "M" };
+    const rows = pdRows([live], [shift("tae", "07:00", "16:00"), shift("m", "07:00", "16:00")]);
+    expect(rows.map((r) => [r.title, r.slots.map((x) => x.id)])).toEqual([["M", ["a"]], ["TAE", ["a"]]]);
+  });
 });

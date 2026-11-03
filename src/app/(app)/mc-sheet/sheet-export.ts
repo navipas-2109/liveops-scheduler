@@ -10,6 +10,8 @@ export const sheetDate = (date: string) => `${Number(date.slice(8))} ${MONTHS_EN
 export const sheetTime = (minute: number) => fromLiveMinutes(minute).replace(/^0(\d)/, "$1");
 export const hours = (s: SlotListItem) => (s.endMinute - s.startMinute) / 60;
 
+export const pdNames = (s: SlotListItem) => [s.producerName, s.admin1Name].filter(Boolean).join(", ");
+
 export function sheetCells(s: SlotListItem): string[] {
   return [
     s.mcName ?? "",
@@ -20,7 +22,7 @@ export function sheetCells(s: SlotListItem): string[] {
     sheetTime(s.endMinute),
     String(hours(s)),
     s.roomName,
-    s.producerName ?? "",
+    pdNames(s),
     s.requirement,
   ];
 }

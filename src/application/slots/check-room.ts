@@ -5,7 +5,9 @@ export interface RoomClash {
   slotId: string;
   startMinute: number;
   endMinute: number;
+  brandId: string;
   brandName: string;
+  pdNames: string[];
 }
 
 // Live check for the Add Slot form: which bookings in this room overlap the
@@ -21,6 +23,8 @@ export async function checkRoomAvailability(
       slotId: s.id,
       startMinute: s.startMinute,
       endMinute: s.endMinute,
+      brandId: s.brandId,
       brandName: `${s.brandName} (${s.platform})`,
+      pdNames: [s.producerName, s.admin1Name].filter((n): n is string => !!n),
     }));
 }

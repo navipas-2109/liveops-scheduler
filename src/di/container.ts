@@ -28,6 +28,7 @@ import { getTodayAlerts } from "@/application/slots/get-alerts";
 import { getBrandSlotPage, type BrandSlotPageQuery } from "@/application/slots/get-brand-slot-page";
 import { getMcPlanningPage } from "@/application/slots/get-mc-planning-page";
 import { getMcSheetPage } from "@/application/slots/get-mc-sheet-page";
+import { joinSlot } from "@/application/slots/join-slot";
 import {
   getSchedulePage,
   rangeFor,
@@ -121,6 +122,7 @@ export const services = {
     saveProducer(deps, user, input, id),
   getInputPage: (user: SessionUser, date: string | null) => getInputPage(deps, user, date),
   getMcSheetPage: (user: SessionUser, month: string) => getMcSheetPage(deps, user, month),
+  joinSlot: (user: SessionUser, slotId: string, producerId: string) => joinSlot(deps, user, slotId, producerId),
   listRooms: () => deps.rooms.listAll(),
   listBrands: () => deps.brands.listAll(),
   saveRoom: (user: SessionUser, input: RoomInput, id?: string) => saveRoom(deps, user, input, id),

@@ -49,6 +49,7 @@ export function InputScreen({ data }: { data: InputPageData }) {
       campaign: "",
       requirement: "",
       producerId: row.producerId ?? null,
+      secondPdId: null,
     });
   }
 
@@ -66,6 +67,7 @@ export function InputScreen({ data }: { data: InputPageData }) {
       campaign: s.campaign,
       requirement: s.requirement,
       producerId: s.producerId,
+      secondPdId: s.admin1Id,
     });
   }
 

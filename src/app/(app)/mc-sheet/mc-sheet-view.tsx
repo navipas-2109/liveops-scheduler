@@ -7,7 +7,7 @@ import type { SlotListItem } from "@/application/ports";
 import type { McSheetPageData } from "@/application/slots/get-mc-sheet-page";
 import { monthLabel, shiftMonth } from "../../format";
 import { AssignDrawer } from "../mc-planning/assign-drawer";
-import { hours, sheetDate, sheetTime, toCsv, toTsv } from "./sheet-export";
+import { hours, pdNames, sheetDate, sheetTime, toCsv, toTsv } from "./sheet-export";
 
 const select =
   "rounded-md border border-line-strong bg-field px-2 py-1.5 text-xs text-ink outline-none max-w-[200px]";
@@ -148,7 +148,7 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
                   <td className="px-3 py-1.5 tabular-nums">{sheetTime(s.endMinute)}</td>
                   <td className="px-3 py-1.5 tabular-nums">{hours(s)}</td>
                   <td className="px-3 py-1.5 text-soft">{s.roomName}</td>
-                  <td className="px-3 py-1.5 text-soft">{s.producerName ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-soft">{pdNames(s) || "—"}</td>
                   <td className="max-w-[240px] truncate px-3 py-1.5 text-muted" title={s.requirement}>
                     {s.status === "conflict" && <span className="mr-1 font-semibold text-conflict-fg">คิวชน</span>}
                     {s.requirement}

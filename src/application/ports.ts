@@ -128,7 +128,7 @@ export interface SlotListItem extends SlotRecord {
 export type NewSlot = Pick<
   SlotRecord,
   "date" | "startMinute" | "endMinute" | "roomId" | "brandId" | "campaign" | "requirement" | "aeId"
-> & { producerId?: string | null };
+> & { producerId?: string | null; admin1Id?: string | null };
 
 export type SlotChanges = Omit<NewSlot, "aeId">;
 

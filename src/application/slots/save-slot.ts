@@ -27,6 +27,8 @@ export interface SlotInput {
   requirement: string;
   // Set from Input Live Slot (one row per PD); left out, the PD is unchanged.
   producerId?: string | null;
+  // A second PD on the same live (stored in the slot's admin1 seat).
+  secondPdId?: string | null;
 }
 
 export interface SaveSlotDeps {
@@ -68,6 +70,16 @@ function validateShape(input: SlotInput): string | null {
   if (s < LIVE_DAY_START || e > LIVE_DAY_END) return "เวลาไลฟ์ต้องอยู่ระหว่าง 07:00 ถึง 02:00";
   if (e <= s) return "เวลาจบต้องหลังเวลาเริ่ม";
   if (input.requirement.length > 500 || input.campaign.length > 100) return "ข้อความยาวเกินไป";
+  return null;
+}
+
+async function checkPds(deps: SaveSlotDeps, input: SlotInput): Promise<string | null> {
+  const chosen = [input.producerId, input.secondPdId].filter((id): id is string => !!id);
+  if (chosen.length === 0) return null;
+  const known = new Set((await deps.producers.listAll()).map((p) => p.id));
+  if (chosen.some((id) => !known.has(id))) return "ไม่พบ Producer ที่เลือก";
+  if (input.secondPdId && input.producerId === input.secondPdId) return "PD คนที่ 1 และคนที่ 2 ต้องเป็นคนละคน";
+  if (input.secondPdId && input.producerId === null) return "กรุณาเลือก PD คนที่ 1 ก่อน";
   return null;
 }
 
@@ -118,9 +130,8 @@ export async function saveSlot(
     ...(existing ? [{ brandId: existing.brandId, date: existing.date }] : []),
   ]);
   if (locked) return { ok: false, error: locked };
-  if (input.producerId && !(await deps.producers.listAll()).some((p) => p.id === input.producerId)) {
-    return { ok: false, error: "ไม่พบ Producer ที่เลือก" };
-  }
+  const pdError = await checkPds(deps, input);
+  if (pdError) return { ok: false, error: pdError };
 
   const dates = existing && existing.date !== input.date ? [input.date, existing.date] : [input.date];
   const result = await deps.slots.withDatesLocked(dates, async (session) => {
@@ -144,6 +155,7 @@ export async function saveSlot(
       campaign: input.campaign.trim(),
       requirement: input.requirement.trim(),
       ...(input.producerId !== undefined ? { producerId: input.producerId } : {}),
+      ...(input.secondPdId !== undefined ? { admin1Id: input.secondPdId } : {}),
     };
     const saved = existing
       ? await session.update(existing.id, fields)

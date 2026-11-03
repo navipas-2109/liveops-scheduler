@@ -5,6 +5,7 @@ import type { SessionUser } from "../auth/login";
 import type { McRepository, NotifyChannel, SlotRecord, SlotRepository, SlotWriteSession } from "../ports";
 import { assignMc, getBusyMcs } from "./assign-mc";
 import { deleteSlot } from "./delete-slot";
+import { joinSlot } from "./join-slot";
 import { saveSlot, type SaveSlotDeps, type SlotInput } from "./save-slot";
 
 const ae: SessionUser = { userId: "ae1", name: "สมชาย", role: "AE" };
@@ -25,7 +26,7 @@ function fakeDeps(today = "2026-10-29") {
         id: `s${++seq}`,
         mcId: null,
         producerId: slot.producerId ?? null,
-        admin1Id: null,
+        admin1Id: slot.admin1Id ?? null,
         admin2Id: null,
         status: "waiting",
       };
@@ -93,7 +94,8 @@ function fakeDeps(today = "2026-10-29") {
       unlock: async (brandId, month) => void locked.delete(`${brandId}|${month}`),
     },
     producers: {
-      listAll: async () => [{ id: "pd1", name: "Zay", position: "Producer", employeeId: null, squad: "" }],
+      listAll: async () =>
+        ["pd1", "pd2", "pd3"].map((id) => ({ id, name: id, position: "Producer", employeeId: null, squad: "" })),
       create: async () => ({}) as never,
       update: async () => ({}) as never,
       remove: async () => {},
@@ -245,5 +247,36 @@ describe("brand locks", () => {
     const byPlanner = await saveSlot(env.deps, planner, input({ startMinute: t("13:00"), endMinute: t("15:00") }), id);
     expect(byPlanner.ok).toBe(true);
     expect((await deleteSlot(env.deps, planner, id)).ok).toBe(true);
+  });
+});
+
+describe("two PDs on one live", () => {
+  const operation: SessionUser = { userId: "op", name: "Operation", role: "OPERATION" };
+
+  it("saves a second PD, but not the same person twice", async () => {
+    const env = fakeDeps();
+    const r = await saveSlot(env.deps, operation, input({ producerId: "pd1", secondPdId: "pd2" }));
+    expect(r.ok && [env.rows[0].producerId, env.rows[0].admin1Id]).toEqual(["pd1", "pd2"]);
+    const same = await saveSlot(env.deps, operation, input({ roomId: "R02", producerId: "pd1", secondPdId: "pd1" }));
+    expect(same.ok).toBe(false);
+  });
+
+  it("a second PD joins the booked live instead of booking the room again", async () => {
+    const env = fakeDeps();
+    const r = await saveSlot(env.deps, operation, input({ producerId: "pd1" }));
+    const id = r.ok ? r.slot.id : "";
+    expect((await saveSlot(env.deps, operation, input({ producerId: "pd2" }))).ok).toBe(false); // room taken
+
+    expect(await joinSlot(env.deps, operation, id, "pd2")).toEqual({ ok: true });
+    expect(env.rows).toHaveLength(1);
+    expect([env.rows[0].producerId, env.rows[0].admin1Id]).toEqual(["pd1", "pd2"]);
+    expect((await joinSlot(env.deps, operation, id, "pd2")).ok).toBe(false); // already in
+    expect(await joinSlot(env.deps, operation, id, "pd3")).toEqual({ ok: false, error: "ไลฟ์นี้มี PD ครบ 2 คนแล้ว" });
+
+    env.locked.add("puma|2026-11");
+    const env2 = fakeDeps();
+    const r2 = await saveSlot(env2.deps, operation, input({ producerId: "pd1" }));
+    env2.locked.add("puma|2026-11");
+    expect((await joinSlot(env2.deps, operation, r2.ok ? r2.slot.id : "", "pd2")).ok).toBe(false); // locked
   });
 });

@@ -16,6 +16,7 @@ export interface SlotFormValues {
   campaign: string;
   requirement: string;
   producerId?: string | null;
+  secondPdId?: string | null;
 }
 
 const SIGNED_OUT: ActionResult = { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
@@ -31,6 +32,7 @@ function clean(v: SlotFormValues) {
     campaign: String(v.campaign ?? ""),
     requirement: String(v.requirement ?? ""),
     ...(v.producerId !== undefined ? { producerId: v.producerId ? String(v.producerId) : null } : {}),
+    ...(v.secondPdId !== undefined ? { secondPdId: v.secondPdId ? String(v.secondPdId) : null } : {}),
   };
 }
 
@@ -41,6 +43,15 @@ export async function saveSlotAction(values: SlotFormValues): Promise<ActionResu
   if (!result.ok) return result;
   refresh();
   return { ok: true };
+}
+
+// Adds a PD to a live that's already booked instead of booking the room twice.
+export async function joinSlotAction(slotId: string, producerId: string): Promise<ActionResult> {
+  const user = await getSessionUser();
+  if (!user) return SIGNED_OUT;
+  const result = await services.joinSlot(user, String(slotId), String(producerId));
+  if (result.ok) refresh();
+  return result;
 }
 
 export async function deleteSlotAction(id: string): Promise<ActionResult> {
