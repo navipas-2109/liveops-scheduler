@@ -87,6 +87,7 @@ function fakeDeps(today = "2026-10-29") {
       listAll: async () => [brand("puma"), brand("cosrx")],
       listForAe: async (userId) => (userId === "ae1" ? [brand("puma")] : [brand("cosrx")]),
       create: async () => brand("x"),
+      update: async () => {},
       remove: async () => {},
       slotCount: async () => 0,
     },

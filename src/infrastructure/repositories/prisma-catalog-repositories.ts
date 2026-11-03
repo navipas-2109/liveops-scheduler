@@ -29,6 +29,9 @@ export const prismaBrandRepository: BrandRepository = {
   create(brandName, platform) {
     return prisma.brand.create({ data: { brandName, platform } });
   },
+  async update(id, brandName, platform) {
+    await prisma.brand.update({ where: { id }, data: { brandName, platform } });
+  },
   async remove(id) {
     await prisma.$transaction([
       prisma.slotLock.deleteMany({ where: { brandId: id } }),

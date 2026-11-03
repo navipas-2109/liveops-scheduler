@@ -53,3 +53,30 @@ export async function deleteRoomAction(id: string) {
   if (result.ok) refresh();
   return result;
 }
+
+const ids = (v: unknown) => (Array.isArray(v) ? v.map(String).slice(0, 500) : []);
+const text = (v: unknown) => (typeof v === "string" ? v : undefined);
+
+export async function updateRoomsAction(
+  selected: string[],
+  patch: { buildingId?: string; floor?: number; size?: string; brandAssignment?: string },
+) {
+  const user = await getSessionUser();
+  if (!user) return SIGNED_OUT;
+  const result = await services.updateRooms(user, ids(selected), {
+    buildingId: text(patch?.buildingId),
+    floor: typeof patch?.floor === "number" ? patch.floor : undefined,
+    size: text(patch?.size),
+    brandAssignment: text(patch?.brandAssignment),
+  });
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function deleteRoomsAction(selected: string[]) {
+  const user = await getSessionUser();
+  if (!user) return SIGNED_OUT;
+  const result = await services.deleteRooms(user, ids(selected));
+  if (result.ok) refresh();
+  return result;
+}

@@ -14,7 +14,9 @@ import {
   saveBuilding,
   saveRoom,
   setBrandLock,
+  editChannel,
 } from "@/application/catalog/manage";
+import * as bulk from "@/application/catalog/bulk";
 import { approvePlan, confirmReady, getBrandCheckPage, setPlan } from "@/application/brand-check/brand-check";
 import { getInputPage } from "@/application/slots/get-input-page";
 import { advancePayment } from "@/application/payments/approve-payment";
@@ -158,6 +160,14 @@ export const services = {
   addChannel: (user: SessionUser, brandName: string, platform: string) =>
     addChannel(deps, user, brandName, platform),
   deleteChannel: (user: SessionUser, id: string) => deleteChannel(deps, user, id),
+  editChannel: (user: SessionUser, id: string, brandName: string, platform: string) =>
+    editChannel(deps, user, id, brandName, platform),
+  updateProducers: (user: SessionUser, ids: string[], patch: bulk.ProducerPatch) => bulk.updateProducers(deps, user, ids, patch),
+  deleteProducers: (user: SessionUser, ids: string[]) => bulk.deleteProducers(deps, user, ids),
+  updateRooms: (user: SessionUser, ids: string[], patch: bulk.RoomPatch) => bulk.updateRooms(deps, user, ids, patch),
+  deleteRooms: (user: SessionUser, ids: string[]) => bulk.deleteRooms(deps, user, ids),
+  updateChannels: (user: SessionUser, ids: string[], patch: bulk.ChannelPatch) => bulk.updateChannels(deps, user, ids, patch),
+  deleteChannels: (user: SessionUser, ids: string[]) => bulk.deleteChannels(deps, user, ids),
   deleteProducer: (user: SessionUser, id: string) => deleteProducer(deps, user, id),
   setBrandLock: (user: SessionUser, brandId: string, month: string, locked: boolean) =>
     setBrandLock(deps, user, brandId, month, locked),

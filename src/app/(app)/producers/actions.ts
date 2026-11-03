@@ -32,3 +32,22 @@ export async function deleteProducerAction(id: string) {
   if (result.ok) refresh();
   return result;
 }
+
+const ids = (v: unknown) => (Array.isArray(v) ? v.map(String).slice(0, 500) : []);
+const text = (v: unknown) => (typeof v === "string" ? v : undefined);
+
+export async function updateProducersAction(selected: string[], patch: { position?: string; squad?: string }) {
+  const user = await getSessionUser();
+  if (!user) return { ok: false as const, error: "กรุณาเข้าสู่ระบบใหม่" };
+  const result = await services.updateProducers(user, ids(selected), { position: text(patch?.position), squad: text(patch?.squad) });
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function deleteProducersAction(selected: string[]) {
+  const user = await getSessionUser();
+  if (!user) return { ok: false as const, error: "กรุณาเข้าสู่ระบบใหม่" };
+  const result = await services.deleteProducers(user, ids(selected));
+  if (result.ok) refresh();
+  return result;
+}

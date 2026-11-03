@@ -102,6 +102,27 @@ export async function addChannel(
   return { ok: true, value: undefined };
 }
 
+// Rename a brand or its channel (e.g. "Tiktok" → "TikTok").
+export async function editChannel(
+  deps: { brands: BrandRepository },
+  user: SessionUser,
+  id: string,
+  brandName: string,
+  platform: string,
+): Promise<Result> {
+  if (!EDITORS.includes(user.role)) return NO_RIGHTS;
+  const b = brandName.replace(/\s+/g, " ").trim();
+  const p = platform.replace(/\s+/g, " ").trim();
+  if (!b || !p) return { ok: false, error: "กรุณากรอกทั้งแบรนด์และ Channel" };
+  const all = await deps.brands.listAll();
+  if (!all.some((x) => x.id === id)) return { ok: false, error: "ไม่พบแบรนด์นี้" };
+  if (all.some((x) => x.id !== id && x.brandName.toLowerCase() === b.toLowerCase() && x.platform.toLowerCase() === p.toLowerCase())) {
+    return { ok: false, error: `มี ${b} (${p}) อยู่แล้ว` };
+  }
+  await deps.brands.update(id, b, p);
+  return { ok: true, value: undefined };
+}
+
 export async function deleteChannel(deps: { brands: BrandRepository }, user: SessionUser, id: string): Promise<Result> {
   if (!EDITORS.includes(user.role)) return NO_RIGHTS;
   const used = await deps.brands.slotCount(id);

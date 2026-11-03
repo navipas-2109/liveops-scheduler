@@ -3,7 +3,8 @@
 import { Pencil, Search, Trash2, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Producer } from "@/application/ports";
-import { deleteProducerAction, saveProducerAction } from "./actions";
+import { BulkBar, BulkDrawer, BulkField, BulkNote, SelectAll, useSelection, type BulkOutcome } from "../bulk";
+import { deleteProducerAction, deleteProducersAction, saveProducerAction, updateProducersAction } from "./actions";
 
 const POSITIONS = ["Producer Team Lead", "Senior Producer", "Producer", "Jr. Producer"];
 
@@ -31,9 +32,34 @@ export function ProducersView({ producers, canEdit }: { producers: Producer[]; c
         p.squad.toLowerCase().includes(q)),
   );
   const missingId = producers.filter((p) => !p.employeeId).length;
+  const selection = useSelection(producers.map((p) => p.id));
+  const shownIds = visible.map((p) => p.id);
+  const [bulkEditing, setBulkEditing] = useState(false);
+  const [note, setNote] = useState<{ verb: string; outcome: BulkOutcome } | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function bulkDelete() {
+    const n = selection.selected.length;
+    if (!window.confirm(`ลบพนักงาน ${n} คน? (กะของคนเหล่านี้จะถูกลบด้วย · คนที่ยังมีไลฟ์อยู่จะถูกข้าม)`)) return;
+    setPending(true);
+    const outcome = await deleteProducersAction(selection.selected);
+    setPending(false);
+    setNote({ verb: "ลบ", outcome });
+    if (outcome.ok) selection.clear();
+  }
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+      {canEdit && (
+        <BulkBar
+          count={selection.selected.length}
+          onEdit={() => setBulkEditing(true)}
+          onDelete={bulkDelete}
+          onClear={selection.clear}
+          pending={pending}
+        />
+      )}
+      <BulkNote note={note} onClose={() => setNote(null)} />
       <section className="rounded-xl border border-line bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -82,6 +108,11 @@ export function ProducersView({ producers, canEdit }: { producers: Producer[]; c
           <table className="w-full min-w-[640px] text-left text-xs">
             <thead className="text-[10px] uppercase tracking-wider text-muted">
               <tr className="border-b border-line">
+                {canEdit && (
+                  <th className="w-8 pl-4">
+                    <SelectAll shown={shownIds} selection={selection} />
+                  </th>
+                )}
                 <th className="px-4 py-2 font-semibold">รหัสพนักงาน</th>
                 <th className="px-3 py-2 font-semibold">ชื่อ</th>
                 <th className="px-3 py-2 font-semibold">ตำแหน่ง</th>
@@ -91,7 +122,12 @@ export function ProducersView({ producers, canEdit }: { producers: Producer[]; c
             </thead>
             <tbody>
               {visible.map((p) => (
-                <tr key={p.id} className="border-b border-line/60 hover:bg-field/50">
+                <tr key={p.id} className={`border-b border-line/60 hover:bg-field/50 ${selection.has(p.id) ? "bg-primary/10" : ""}`}>
+                  {canEdit && (
+                    <td className="pl-4">
+                      <input type="checkbox" aria-label={`เลือก ${p.name}`} checked={selection.has(p.id)} onChange={() => selection.toggle(p.id)} />
+                    </td>
+                  )}
                   <td className="px-4 py-2 tabular-nums text-soft">{p.employeeId ?? <span className="text-muted">—</span>}</td>
                   <td className="px-3 py-2 font-semibold">{p.name}</td>
                   <td className="px-3 py-2">
@@ -122,6 +158,19 @@ export function ProducersView({ producers, canEdit }: { producers: Producer[]; c
         </div>
       </section>
 
+      {bulkEditing && (
+        <BulkProducerDrawer
+          ids={selection.selected}
+          onClose={() => setBulkEditing(false)}
+          onDone={(outcome) => {
+            setNote({ verb: "แก้ไข", outcome });
+            if (outcome.ok) {
+              setBulkEditing(false);
+              selection.clear();
+            }
+          }}
+        />
+      )}
       {draft && <ProducerDrawer key={draft.id ?? "new"} initial={draft} onClose={() => setDraft(null)} />}
     </div>
   );
@@ -230,5 +279,42 @@ function ProducerDrawer({ initial, onClose }: { initial: Draft; onClose: () => v
         </div>
       </form>
     </div>
+  );
+}
+
+function BulkProducerDrawer({
+  ids,
+  onClose,
+  onDone,
+}: {
+  ids: string[];
+  onClose: () => void;
+  onDone: (outcome: BulkOutcome) => void;
+}) {
+  const [usePosition, setUsePosition] = useState(false);
+  const [useSquad, setUseSquad] = useState(false);
+  const [position, setPosition] = useState(POSITIONS[3]);
+  const [squad, setSquad] = useState("");
+  const field = "w-full rounded-lg border border-line-strong bg-field px-3 py-2 text-[13px] text-ink outline-none focus:border-primary";
+  return (
+    <BulkDrawer
+      title="แก้ไขพนักงานที่เลือก"
+      count={ids.length}
+      onClose={onClose}
+      onSubmit={async () =>
+        onDone(await updateProducersAction(ids, { ...(usePosition ? { position } : {}), ...(useSquad ? { squad } : {}) }))
+      }
+    >
+      <BulkField label="ตำแหน่ง" on={usePosition} onToggle={setUsePosition}>
+        <select value={position} onChange={(e) => setPosition(e.target.value)} aria-label="ตำแหน่งใหม่" className={field}>
+          {POSITIONS.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+      </BulkField>
+      <BulkField label="Squad" on={useSquad} onToggle={setUseSquad}>
+        <input value={squad} onChange={(e) => setSquad(e.target.value)} placeholder="เช่น Adidas Ch1 (TikTok) · เว้นว่าง = ล้าง Squad" aria-label="Squad ใหม่" className={`${field} placeholder:text-muted`} />
+      </BulkField>
+    </BulkDrawer>
   );
 }

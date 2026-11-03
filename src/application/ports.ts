@@ -33,6 +33,7 @@ export interface BrandRepository {
   listAll(): Promise<Brand[]>;
   listForAe(userId: string): Promise<Brand[]>;
   create(brandName: string, platform: string): Promise<Brand>;
+  update(id: string, brandName: string, platform: string): Promise<void>;
   remove(id: string): Promise<void>;
   slotCount(id: string): Promise<number>;
 }

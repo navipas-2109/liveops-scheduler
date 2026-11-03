@@ -3,11 +3,14 @@
 import { Building2, Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Building, Room, RoomInput } from "@/application/ports";
+import { BulkBar, BulkDrawer, BulkField, BulkNote, SelectAll, useSelection, type BulkOutcome } from "../bulk";
 import {
   deleteBuildingAction,
   deleteRoomAction,
+  deleteRoomsAction,
   saveBuildingAction,
   saveRoomAction,
+  updateRoomsAction,
 } from "./actions";
 
 type Draft = RoomInput & { id?: string };
@@ -23,9 +26,30 @@ export function RoomsView({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [managing, setManaging] = useState(false);
   const visible = rooms.filter((r) => !building || r.buildingId === building);
+  const selection = useSelection(rooms.map((r) => r.id));
+  const [bulkEditing, setBulkEditing] = useState(false);
+  const [note, setNote] = useState<{ verb: string; outcome: BulkOutcome } | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function bulkDelete() {
+    if (!window.confirm(`ลบห้อง ${selection.selected.length} ห้อง? (ห้องที่ยังมีไลฟ์อยู่จะถูกข้าม)`)) return;
+    setPending(true);
+    const outcome = await deleteRoomsAction(selection.selected);
+    setPending(false);
+    setNote({ verb: "ลบ", outcome });
+    if (outcome.ok) selection.clear();
+  }
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+      <BulkBar
+        count={selection.selected.length}
+        onEdit={() => setBulkEditing(true)}
+        onDelete={bulkDelete}
+        onClear={selection.clear}
+        pending={pending}
+      />
+      <BulkNote note={note} onClose={() => setNote(null)} />
       {managing && (
         <BuildingsPanel
           buildings={buildings}
@@ -80,6 +104,9 @@ export function RoomsView({
           <table className="w-full min-w-[640px] text-left text-xs">
             <thead className="text-[10px] uppercase tracking-wider text-muted">
               <tr className="border-b border-line">
+                <th className="w-8 pl-4">
+                  <SelectAll shown={visible.map((r) => r.id)} selection={selection} />
+                </th>
                 <th className="px-4 py-2 font-semibold">อาคาร</th>
                 <th className="px-3 py-2 font-semibold">ชั้น</th>
                 <th className="px-3 py-2 font-semibold">ห้อง</th>
@@ -92,8 +119,16 @@ export function RoomsView({
               {visible.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-b border-line/60 hover:bg-field/50"
+                  className={`border-b border-line/60 hover:bg-field/50 ${selection.has(r.id) ? "bg-primary/10" : ""}`}
                 >
+                  <td className="pl-4">
+                    <input
+                      type="checkbox"
+                      aria-label={`เลือก ${r.building} ${r.roomNo}`}
+                      checked={selection.has(r.id)}
+                      onChange={() => selection.toggle(r.id)}
+                    />
+                  </td>
                   <td className="px-4 py-2 text-soft">{r.building}</td>
                   <td className="px-3 py-2 tabular-nums">F{r.floor}</td>
                   <td className="px-3 py-2 font-semibold">{r.roomNo}</td>
@@ -142,6 +177,20 @@ export function RoomsView({
         </div>
       </section>
 
+      {bulkEditing && (
+        <BulkRoomDrawer
+          ids={selection.selected}
+          buildings={buildings}
+          onClose={() => setBulkEditing(false)}
+          onDone={(outcome) => {
+            setNote({ verb: "แก้ไข", outcome });
+            if (outcome.ok) {
+              setBulkEditing(false);
+              selection.clear();
+            }
+          }}
+        />
+      )}
       {draft && (
         <RoomDrawer
           key={draft.id ?? "new"}
@@ -458,5 +507,71 @@ function BuildingRow({
         <Trash2 size={13} />
       </button>
     </div>
+  );
+}
+
+function BulkRoomDrawer({
+  ids,
+  buildings,
+  onClose,
+  onDone,
+}: {
+  ids: string[];
+  buildings: Building[];
+  onClose: () => void;
+  onDone: (outcome: BulkOutcome) => void;
+}) {
+  const [on, setOn] = useState({ building: false, floor: false, size: false, brand: false });
+  const [buildingId, setBuildingId] = useState(buildings[0]?.id ?? "");
+  const [floor, setFloor] = useState(1);
+  const [size, setSize] = useState("Small");
+  const [brandAssignment, setBrandAssignment] = useState("");
+  const toggle = (k: keyof typeof on) => (v: boolean) => setOn((o) => ({ ...o, [k]: v }));
+  const field =
+    "w-full rounded-lg border border-line-strong bg-field px-3 py-2 text-[13px] text-ink outline-none focus:border-primary placeholder:text-muted";
+  return (
+    <BulkDrawer
+      title="แก้ไขห้องที่เลือก"
+      count={ids.length}
+      onClose={onClose}
+      onSubmit={async () =>
+        onDone(
+          await updateRoomsAction(ids, {
+            ...(on.building ? { buildingId } : {}),
+            ...(on.floor ? { floor } : {}),
+            ...(on.size ? { size } : {}),
+            ...(on.brand ? { brandAssignment } : {}),
+          }),
+        )
+      }
+    >
+      <BulkField label="อาคาร" on={on.building} onToggle={toggle("building")}>
+        <select value={buildingId} onChange={(e) => setBuildingId(e.target.value)} aria-label="อาคารใหม่" className={field}>
+          {buildings.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      </BulkField>
+      <BulkField label="ชั้น" on={on.floor} onToggle={toggle("floor")}>
+        <input type="number" min={0} max={50} value={floor} onChange={(e) => setFloor(Number(e.target.value))} aria-label="ชั้นใหม่" className={field} />
+      </BulkField>
+      <BulkField label="ขนาด" on={on.size} onToggle={toggle("size")}>
+        <select value={size} onChange={(e) => setSize(e.target.value)} aria-label="ขนาดใหม่" className={field}>
+          <option>Large</option>
+          <option>Small</option>
+        </select>
+      </BulkField>
+      <BulkField label="แบรนด์ประจำห้อง" on={on.brand} onToggle={toggle("brand")}>
+        <input
+          value={brandAssignment}
+          onChange={(e) => setBrandAssignment(e.target.value)}
+          placeholder="เว้นว่าง = ไม่มีแบรนด์ประจำห้อง"
+          aria-label="แบรนด์ประจำห้องใหม่"
+          className={field}
+        />
+      </BulkField>
+    </BulkDrawer>
   );
 }

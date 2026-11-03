@@ -1,25 +1,32 @@
 "use client";
 
-import { Plus, Search, X } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { Brand } from "@/application/ports";
-import { addChannelAction, deleteChannelAction } from "./actions";
+import { BulkBar, BulkDrawer, BulkField, BulkNote, SelectAll, useSelection, type BulkOutcome } from "../bulk";
+import { addChannelAction, deleteChannelsAction, editChannelAction, updateChannelsAction } from "./actions";
 
 const field =
   "w-full rounded-lg border border-line-strong bg-field px-3 py-2 text-[13px] text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 placeholder:text-muted";
 
-// Each row is one brand with the channels (platforms) it goes live on.
+// One row per brand and channel (platform) it goes live on.
 export function ChannelsView({ brands }: { brands: Brand[] }) {
   const [query, setQuery] = useState("");
   const [brandName, setBrandName] = useState("");
   const [platform, setPlatform] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [editing, setEditing] = useState<Brand | null>(null);
+  const [bulkEditing, setBulkEditing] = useState(false);
+  const [note, setNote] = useState<{ verb: string; outcome: BulkOutcome } | null>(null);
 
   const names = [...new Set(brands.map((b) => b.brandName))].sort((a, b) => a.localeCompare(b));
   const channels = [...new Set(brands.map((b) => b.platform))].sort((a, b) => a.localeCompare(b));
   const q = query.trim().toLowerCase();
-  const visible = names.filter((n) => !q || n.toLowerCase().includes(q));
+  const visible = brands
+    .filter((b) => !q || `${b.brandName} ${b.platform}`.toLowerCase().includes(q))
+    .sort((a, b) => a.brandName.localeCompare(b.brandName) || a.platform.localeCompare(b.platform));
+  const selection = useSelection(brands.map((b) => b.id));
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -31,11 +38,21 @@ export function ChannelsView({ brands }: { brands: Brand[] }) {
     else setError(r.error);
   }
 
-  async function remove(b: Brand) {
+  async function bulkDelete() {
+    if (!window.confirm(`ลบ ${selection.selected.length} รายการ? (แบรนด์/Channel ที่ยังมีไลฟ์อยู่จะถูกข้าม)`)) return;
+    setPending(true);
+    const outcome = await deleteChannelsAction(selection.selected);
+    setPending(false);
+    setNote({ verb: "ลบ", outcome });
+    if (outcome.ok) selection.clear();
+  }
+
+  async function removeOne(b: Brand) {
     if (!window.confirm(`ลบ ${b.brandName} (${b.platform})?`)) return;
-    setError(null);
-    const r = await deleteChannelAction(b.id);
-    if (!r.ok) setError(`${b.brandName} (${b.platform}): ${r.error}`);
+    setPending(true);
+    const outcome = await deleteChannelsAction([b.id]);
+    setPending(false);
+    setNote({ verb: "ลบ", outcome });
   }
 
   return (
@@ -73,6 +90,15 @@ export function ChannelsView({ brands }: { brands: Brand[] }) {
         )}
       </form>
 
+      <BulkBar
+        count={selection.selected.length}
+        onEdit={() => setBulkEditing(true)}
+        onDelete={bulkDelete}
+        onClear={selection.clear}
+        pending={pending}
+      />
+      <BulkNote note={note} onClose={() => setNote(null)} />
+
       <section className="rounded-xl border border-line bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <h2 className="text-sm font-semibold">
@@ -83,35 +109,126 @@ export function ChannelsView({ brands }: { brands: Brand[] }) {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาแบรนด์"
-              className="w-40 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
+              placeholder="ค้นหาแบรนด์ / Channel"
+              className="w-44 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
             />
           </label>
         </div>
-        <ul>
-          {visible.map((n) => (
-            <li key={n} className="flex flex-wrap items-center gap-2 border-b border-line/60 px-4 py-2.5 text-xs">
-              <span className="w-40 shrink-0 font-semibold">{n}</span>
-              {brands
-                .filter((b) => b.brandName === n)
-                .map((b) => (
-                  <span key={b.id} className="flex items-center gap-1 rounded-md bg-field py-0.5 pl-2 pr-0.5 text-[11px] text-soft">
-                    {b.platform}
-                    <button
-                      type="button"
-                      onClick={() => remove(b)}
-                      aria-label={`ลบ ${n} ${b.platform}`}
-                      className="rounded p-0.5 text-muted hover:bg-conflict-bg hover:text-conflict-fg"
-                    >
-                      <X size={12} />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-left text-xs">
+            <thead className="text-[10px] uppercase tracking-wider text-muted">
+              <tr className="border-b border-line">
+                <th className="w-8 pl-4">
+                  <SelectAll shown={visible.map((b) => b.id)} selection={selection} />
+                </th>
+                <th className="px-4 py-2 font-semibold">แบรนด์</th>
+                <th className="px-3 py-2 font-semibold">Channel</th>
+                <th className="w-20 px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((b) => (
+                <tr key={b.id} className={`border-b border-line/60 hover:bg-field/50 ${selection.has(b.id) ? "bg-primary/10" : ""}`}>
+                  <td className="pl-4">
+                    <input
+                      type="checkbox"
+                      aria-label={`เลือก ${b.brandName} ${b.platform}`}
+                      checked={selection.has(b.id)}
+                      onChange={() => selection.toggle(b.id)}
+                    />
+                  </td>
+                  <td className="px-4 py-2 font-semibold">{b.brandName}</td>
+                  <td className="px-3 py-2 text-soft">{b.platform}</td>
+                  <td className="px-3 py-2 text-right">
+                    <button type="button" onClick={() => setEditing(b)} aria-label={`แก้ไข ${b.brandName} ${b.platform}`} className="rounded-md p-1.5 text-muted hover:bg-field hover:text-ink">
+                      <Pencil size={13} />
                     </button>
-                  </span>
-                ))}
-            </li>
-          ))}
-        </ul>
-        {visible.length === 0 && <p className="px-4 py-8 text-center text-xs text-muted">ไม่พบแบรนด์</p>}
+                    <button type="button" onClick={() => removeOne(b)} aria-label={`ลบ ${b.brandName} ${b.platform}`} className="rounded-md p-1.5 text-muted hover:bg-conflict-bg hover:text-conflict-fg">
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {visible.length === 0 && <p className="px-4 py-8 text-center text-xs text-muted">ไม่พบแบรนด์</p>}
+        </div>
       </section>
+
+      {editing && <EditChannelDrawer key={editing.id} brand={editing} onClose={() => setEditing(null)} />}
+      {bulkEditing && (
+        <BulkChannelDrawer
+          ids={selection.selected}
+          onClose={() => setBulkEditing(false)}
+          onDone={(outcome) => {
+            setNote({ verb: "แก้ไข", outcome });
+            if (outcome.ok) {
+              setBulkEditing(false);
+              selection.clear();
+            }
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function EditChannelDrawer({ brand, onClose }: { brand: Brand; onClose: () => void }) {
+  const [brandName, setBrandName] = useState(brand.brandName);
+  const [platform, setPlatform] = useState(brand.platform);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <BulkDrawer
+      title="แก้ไขแบรนด์ / Channel"
+      count={1}
+      onClose={onClose}
+      onSubmit={async () => {
+        const r = await editChannelAction(brand.id, brandName, platform);
+        if (r.ok) onClose();
+        else setError(r.error);
+      }}
+    >
+      <label className="grid gap-1.5">
+        <span className="text-[11px] text-soft">แบรนด์</span>
+        <input value={brandName} onChange={(e) => setBrandName(e.target.value)} required aria-label="ชื่อแบรนด์" className={field} />
+      </label>
+      <label className="grid gap-1.5">
+        <span className="text-[11px] text-soft">Channel / Platform</span>
+        <input value={platform} onChange={(e) => setPlatform(e.target.value)} required aria-label="ชื่อ Channel" className={field} />
+      </label>
+      {error && <p role="alert" className="rounded-lg bg-conflict-bg px-3 py-2 text-xs text-conflict-fg">{error}</p>}
+    </BulkDrawer>
+  );
+}
+
+function BulkChannelDrawer({
+  ids,
+  onClose,
+  onDone,
+}: {
+  ids: string[];
+  onClose: () => void;
+  onDone: (outcome: BulkOutcome) => void;
+}) {
+  const [useBrand, setUseBrand] = useState(false);
+  const [usePlatform, setUsePlatform] = useState(false);
+  const [brandName, setBrandName] = useState("");
+  const [platform, setPlatform] = useState("");
+  return (
+    <BulkDrawer
+      title="แก้ไขที่เลือก"
+      count={ids.length}
+      onClose={onClose}
+      onSubmit={async () =>
+        onDone(await updateChannelsAction(ids, { ...(useBrand ? { brandName } : {}), ...(usePlatform ? { platform } : {}) }))
+      }
+    >
+      <BulkField label="ชื่อแบรนด์" on={useBrand} onToggle={setUseBrand}>
+        <input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="ชื่อแบรนด์ใหม่" aria-label="ชื่อแบรนด์ใหม่" className={field} />
+      </BulkField>
+      <BulkField label="ชื่อ Channel" on={usePlatform} onToggle={setUsePlatform}>
+        <input value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="เช่น TikTok" aria-label="ชื่อ Channel ใหม่" className={field} />
+      </BulkField>
+    </BulkDrawer>
   );
 }
