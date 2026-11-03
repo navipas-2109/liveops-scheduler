@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { BrandCheckPageData, BrandCheckRow } from "@/application/brand-check/brand-check";
 import { TIME_BANDS, type CheckStatus } from "@/domain/brand-check";
 import { monthLabel, shiftMonth } from "../../format";
+import { setBrandLockAction } from "../input-slots/actions";
 import { approvePlanAction, confirmReadyAction, setPlanAction } from "./actions";
 import { CHECK_META, CheckBadge, hrs } from "./check-status";
 
@@ -226,7 +227,22 @@ function Row({
         </td>
       ))}
       <td className="px-3 py-1.5">
-        <CheckBadge status={r.status} />
+        <span className="flex items-center gap-1.5">
+          <CheckBadge status={r.status} />
+          {locked && canPlan && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                window.confirm(`ปลดล็อก ${r.brandName} (${r.platform}) เพื่อแก้ไข?\nแก้เสร็จแล้วให้ AE กดยืนยันใหม่`) &&
+                run(() => setBrandLockAction(r.brandId, month, false))
+              }
+              className="whitespace-nowrap text-[10px] text-muted underline hover:text-ink"
+            >
+              ปลดล็อก
+            </button>
+          )}
+        </span>
       </td>
       <td className="px-3 py-1.5">
         {r.approvedByName ? (
