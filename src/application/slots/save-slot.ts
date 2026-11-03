@@ -12,6 +12,7 @@ import type {
   Room,
   ProducerRepository,
   RoomRepository,
+  ShiftMonthRepository,
   SlotLockRepository,
   SlotRecord,
   SlotRepository,
@@ -39,12 +40,26 @@ export interface SaveSlotDeps {
   bookingWindows: BookingWindowRepository;
   locks: SlotLockRepository;
   plans: BrandPlanRepository;
+  shiftMonths: ShiftMonthRepository;
   producers: ProducerRepository;
   notifier: Notifier;
   clock: Clock;
 }
 
 const CAN_BOOK = ["AE", "MANAGER", "PLANNER", "OPERATION"];
+
+// AEs book a month only after the Planner has confirmed its Producer shifts.
+export async function waitingForShifts(
+  shiftMonths: ShiftMonthRepository,
+  user: SessionUser,
+  dates: string[],
+): Promise<string | null> {
+  if (user.role !== "AE") return null;
+  for (const month of new Set(dates.map(monthOf))) {
+    if (!(await shiftMonths.find(month))) return `รอ Planner ยืนยันกะ Producer เดือน ${month} ก่อน จึงจะลงสล็อตได้`;
+  }
+  return null;
+}
 
 // Locked months for this brand that the user isn't allowed to change.
 export async function lockedFor(
@@ -127,6 +142,11 @@ export async function saveSlot(
   }
   const check = checkBookingAllowed(user.role, windows, input.date, today);
   if (!check.ok) return { ok: false, error: check.reason };
+  const shiftsPending = await waitingForShifts(deps.shiftMonths, user, [
+    input.date,
+    ...(existing ? [existing.date] : []),
+  ]);
+  if (shiftsPending) return { ok: false, error: shiftsPending };
   const locked = await lockedFor(deps.locks, user, [
     { brandId: input.brandId, date: input.date },
     ...(existing ? [{ brandId: existing.brandId, date: existing.date }] : []),

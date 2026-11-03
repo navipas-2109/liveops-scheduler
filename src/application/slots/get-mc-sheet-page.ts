@@ -58,7 +58,7 @@ export async function getMcSheetPage(
   const locked = new Set(locks.map((l) => l.brandId));
   const ownBrands = own && new Set(own.map((b) => b.id));
   const visible = (s: SlotListItem) =>
-    viewer === "mc" ? s.mcId === user.mcId : !ownBrands || ownBrands.has(s.brandId);
+    viewer === "mc" ? s.mcId === user.mcId && s.mcSent : !ownBrands || ownBrands.has(s.brandId);
 
   const pending = new Map<string, { brandName: string; platform: string; total: number }>();
   for (const s of slots) {
@@ -71,6 +71,12 @@ export async function getMcSheetPage(
   const rows = slots
     .filter((s) => locked.has(s.brandId) && visible(s))
     .map((s) => (viewer === "ae" && !s.mcConfirmed ? { ...s, mcName: null } : s))
+    // MCs don't see who the Producers are.
+    .map((s) =>
+      viewer === "mc"
+        ? { ...s, producerId: null, admin1Id: null, admin2Id: null, producerName: null, admin1Name: null, admin2Name: null }
+        : s,
+    )
     .sort(sheetOrder);
 
   return {

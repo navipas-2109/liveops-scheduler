@@ -191,6 +191,8 @@ model Slot {
   mcId        String?    @map("mc_id")
   mc          Mc?        @relation(fields: [mcId], references: [id])
   // When the MC ticked this live as confirmed; cleared when the MC changes.
+  // When the Planner sent this MC assignment to the MC (MCs only see sent ones).
+  mcSentAt      DateTime? @map("mc_sent_at")
   mcConfirmedAt DateTime? @map("mc_confirmed_at")
   plannerId   String?    @map("planner_id")
   planner     User?      @relation("SlotPlanner", fields: [plannerId], references: [id])

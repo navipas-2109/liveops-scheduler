@@ -43,4 +43,12 @@ describe("MC slot sheet", () => {
     expect(csv.startsWith("﻿MC,Brand,")).toBe(true);
     expect(csv).toContain('"เลิกไม่เกิน 21:30, ห้ามช้า"');
   });
+
+  it("leaves the PD column out for MCs", () => {
+    const s = slot({ mcName: "Boss" });
+    expect(toTsv([s], false).split("\n")).toEqual([
+      "MC\tBrand\tChannel\tDate\tStart Time\tEnd Time\tNumber of Hrs\tRoom\tNote",
+      "Boss\tbanobagi\tTikTok\t25 Dec\t22:30\t0:30\t2\tR1\t",
+    ]);
+  });
 });

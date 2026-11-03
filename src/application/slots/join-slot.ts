@@ -1,13 +1,18 @@
 import type { SessionUser } from "../auth/login";
-import type { ProducerRepository, SlotLockRepository, SlotRepository } from "../ports";
-import { lockedFor } from "./save-slot";
+import type { ProducerRepository, ShiftMonthRepository, SlotLockRepository, SlotRepository } from "../ports";
+import { lockedFor, waitingForShifts } from "./save-slot";
 
 const CAN_BOOK = ["AE", "MANAGER", "PLANNER", "OPERATION"];
 
 // Some brands run one live with two PDs. Instead of booking the room twice,
 // the second PD joins the existing live (first free PD seat).
 export async function joinSlot(
-  deps: { slots: SlotRepository; producers: ProducerRepository; locks: SlotLockRepository },
+  deps: {
+    slots: SlotRepository;
+    producers: ProducerRepository;
+    locks: SlotLockRepository;
+    shiftMonths: ShiftMonthRepository;
+  },
   user: SessionUser,
   slotId: string,
   producerId: string,
@@ -17,6 +22,8 @@ export async function joinSlot(
   if (!slot) return { ok: false, error: "ไม่พบสล็อตนี้" };
   if (user.role === "AE" && slot.aeId !== user.userId) return { ok: false, error: "แก้ไขได้เฉพาะสล็อตของคุณเอง" };
   if (slot.status === "completed") return { ok: false, error: "ไลฟ์นี้จบและบันทึกแล้ว" };
+  const shiftsPending = await waitingForShifts(deps.shiftMonths, user, [slot.date]);
+  if (shiftsPending) return { ok: false, error: shiftsPending };
   const locked = await lockedFor(deps.locks, user, [slot]);
   if (locked) return { ok: false, error: locked };
   if (!(await deps.producers.listAll()).some((p) => p.id === producerId)) {

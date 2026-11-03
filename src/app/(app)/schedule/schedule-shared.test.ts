@@ -18,6 +18,7 @@ const slot = (id: string, producerId: string | null, start: string, end: string)
   admin1Id: null,
   admin2Id: null,
   status: "waiting",
+  mcSent: false,
   mcConfirmed: false,
   brandName: "PUMA",
   platform: "TikTok",

@@ -12,6 +12,7 @@ import type {
   Room,
   RoomRepository,
   ShiftItem,
+  ShiftMonthRepository,
   ShiftRepository,
   SlotLockRepository,
   SlotListItem,
@@ -36,6 +37,7 @@ export interface InputPageData {
   window: BookingWindow | null;
   windowOpen: boolean;
   canSetWindow: boolean;
+  shiftsConfirmed: boolean; // AEs can book only once the Planner confirmed the month's shifts
   canChangeLocked: boolean;
 }
 
@@ -51,6 +53,7 @@ export async function getInputPage(
     locks: SlotLockRepository;
     plans: BrandPlanRepository;
     bookingWindows: BookingWindowRepository;
+    shiftMonths: ShiftMonthRepository;
     clock: Clock;
   },
   user: SessionUser,
@@ -59,7 +62,7 @@ export async function getInputPage(
   const today = deps.clock.today();
   const day = date ?? today;
   const month = day.slice(0, 7);
-  const [shifts, slots, rooms, brands, producers, locks, checks, windows] = await Promise.all([
+  const [shifts, slots, rooms, brands, producers, locks, checks, windows, shiftMonth] = await Promise.all([
     deps.shifts.listInRange(day, day),
     deps.slots.list({ from: day, to: day }),
     deps.rooms.listAll(),
@@ -68,6 +71,7 @@ export async function getInputPage(
     deps.locks.listForMonth(month),
     buildRows(deps, user, month),
     deps.bookingWindows.listAll(),
+    deps.shiftMonths.find(month),
   ]);
   const window = windows.find((w) => w.targetMonth === month) ?? null;
   return {
@@ -87,5 +91,6 @@ export async function getInputPage(
     window,
     windowOpen: !!window && isWindowOpen(window, today),
     canSetWindow: user.role === "PLANNER" || user.role === "MANAGER",
+    shiftsConfirmed: !!shiftMonth,
   };
 }

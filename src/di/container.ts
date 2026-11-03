@@ -32,6 +32,7 @@ import { getMcPlanningPage } from "@/application/slots/get-mc-planning-page";
 import { getMcSheetPage } from "@/application/slots/get-mc-sheet-page";
 import { joinSlot } from "@/application/slots/join-slot";
 import { respondToSlot, type McResponse } from "@/application/slots/mc-respond";
+import { sendToMcs } from "@/application/slots/send-to-mcs";
 import {
   getSchedulePage,
   rangeFor,
@@ -135,6 +136,7 @@ export const services = {
   joinSlot: (user: SessionUser, slotId: string, producerId: string) => joinSlot(deps, user, slotId, producerId),
   respondToSlot: (user: SessionUser, slotId: string, response: McResponse) =>
     respondToSlot(deps, user, slotId, response),
+  sendToMcs: (user: SessionUser, month: string, slotIds: string[]) => sendToMcs(deps, user, month, slotIds),
   getBrandCheckPage: (user: SessionUser, month: string) => getBrandCheckPage(deps, user, month),
   setPlan: (user: SessionUser, brandId: string, month: string, hours: number, remark: string) =>
     setPlan(deps, user, brandId, month, hours, remark),

@@ -15,7 +15,7 @@ export async function respondToSlot(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (user.role !== "MC" || !user.mcId) return { ok: false, error: "เฉพาะ MC เท่านั้น" };
   const slot = await deps.slots.findById(slotId);
-  if (!slot || slot.mcId !== user.mcId) return { ok: false, error: "ไม่พบไลฟ์นี้ในรายชื่อของคุณ" };
+  if (!slot || slot.mcId !== user.mcId || !slot.mcSent) return { ok: false, error: "ไม่พบไลฟ์นี้ในรายชื่อของคุณ" };
   if (slot.status === "completed") return { ok: false, error: "ไลฟ์นี้จบและบันทึกแล้ว" };
 
   const result = await deps.slots.withDatesLocked([slot.date], async (session) => {

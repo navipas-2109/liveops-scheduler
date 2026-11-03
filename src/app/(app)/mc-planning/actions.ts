@@ -28,3 +28,12 @@ export async function respondToSlotAction(slotId: string, response: "confirm" | 
   if (result.ok) refresh();
   return result;
 }
+
+export async function sendToMcsAction(month: string, slotIds: string[]) {
+  const user = await getSessionUser();
+  if (!user) return { ok: false as const, error: "กรุณาเข้าสู่ระบบใหม่" };
+  const ids = Array.isArray(slotIds) ? slotIds.map(String).slice(0, 5000) : [];
+  const result = await services.sendToMcs(user, String(month), ids);
+  if (result.ok) refresh();
+  return result;
+}

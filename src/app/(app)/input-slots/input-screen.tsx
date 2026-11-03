@@ -134,6 +134,12 @@ export function InputScreen({ data }: { data: InputPageData }) {
         month={data.month}
       />
 
+      {!data.shiftsConfirmed && (
+        <p className="rounded-lg border border-waiting-fg/30 bg-waiting-bg px-3 py-2 text-xs text-waiting-fg">
+          กะ Producer เดือน {monthLabel(data.month)} ยังไม่ยืนยัน — AE จะลงสล็อตได้หลัง Planner กด “ยืนยันกะเดือนนี้” ที่หน้า Producer Shift
+        </p>
+      )}
+
       {notice && (
         <p role="alert" className="rounded-lg border border-conflict-fg/30 bg-conflict-bg px-3 py-2 text-xs text-conflict-fg">
           {notice}

@@ -19,6 +19,7 @@ function fakeDeps(today = "2026-10-29") {
   const sent: { channels: NotifyChannel[]; text: string }[] = [];
   const locked = new Set<string>();
   const cleared: string[] = [];
+  const shiftsConfirmed = new Set(["2026-11"]);
   let seq = 0;
   const session: SlotWriteSession = {
     listOnDate: async (date) => rows.filter((r) => r.date === date).map((r) => ({ ...r })),
@@ -31,6 +32,7 @@ function fakeDeps(today = "2026-10-29") {
         admin1Id: slot.admin1Id ?? null,
         admin2Id: null,
         status: "waiting",
+        mcSent: false,
         mcConfirmed: false,
       };
       rows.push(row);
@@ -48,13 +50,16 @@ function fakeDeps(today = "2026-10-29") {
       rows.find((r) => r.id === id)!.status = status;
     },
     setMc: async (id, mcId) => {
-      Object.assign(rows.find((r) => r.id === id)!, { mcId, mcConfirmed: false });
+      Object.assign(rows.find((r) => r.id === id)!, { mcId, mcSent: false, mcConfirmed: false });
+    },
+    markMcSent: async (id) => {
+      rows.find((r) => r.id === id)!.mcSent = true;
     },
     setMcConfirmed: async (id, confirmed) => {
       rows.find((r) => r.id === id)!.mcConfirmed = confirmed;
     },
     clearMc: async (id) => {
-      Object.assign(rows.find((r) => r.id === id)!, { mcId: null, mcConfirmed: false });
+      Object.assign(rows.find((r) => r.id === id)!, { mcId: null, mcSent: false, mcConfirmed: false });
     },
     setStaff: async (id, staff) => {
       Object.assign(rows.find((r) => r.id === id)!, staff);
@@ -102,6 +107,11 @@ function fakeDeps(today = "2026-10-29") {
       lock: async (brandId, month) => void locked.add(`${brandId}|${month}`),
       unlock: async (brandId, month) => void locked.delete(`${brandId}|${month}`),
     },
+    shiftMonths: {
+      find: async (month) => (shiftsConfirmed.has(month) ? { month, confirmedByName: "Planner", confirmedAt: "" } : null),
+      confirm: async (month) => void shiftsConfirmed.add(month),
+      unconfirm: async (month) => void shiftsConfirmed.delete(month),
+    },
     plans: {
       listForMonth: async () => [],
       find: async () => null,
@@ -119,7 +129,7 @@ function fakeDeps(today = "2026-10-29") {
     notifier: { notify: async (channels, text) => void sent.push({ channels, text }) },
     clock: { today: () => today, nowMinute: () => 12 * 60 },
   };
-  return { deps, rows, sent, locked, cleared };
+  return { deps, rows, sent, locked, cleared, shiftsConfirmed };
 }
 
 function input(overrides: Partial<SlotInput> = {}): SlotInput {
@@ -318,6 +328,8 @@ describe("MC answers for their lives", () => {
     const r = await saveSlot(env.deps, planner, input());
     const id = r.ok ? r.slot.id : "";
     await assignMc(env.deps, planner, id, "boss");
+    expect((await respondToSlot(env.deps, boss, id, "confirm")).ok).toBe(false); // not sent yet
+    env.rows[0].mcSent = true;
 
     expect((await respondToSlot(env.deps, sari, id, "confirm")).ok).toBe(false);
     expect(await respondToSlot(env.deps, boss, id, "confirm")).toEqual({ ok: true });
@@ -335,8 +347,21 @@ describe("MC answers for their lives", () => {
     const r = await saveSlot(env.deps, planner, input());
     const id = r.ok ? r.slot.id : "";
     await assignMc(env.deps, planner, id, "boss");
+    env.rows[0].mcSent = true;
     await respondToSlot(env.deps, boss, id, "confirm");
     await assignMc(env.deps, planner, id, "sari");
-    expect(env.rows[0]).toMatchObject({ mcId: "sari", mcConfirmed: false });
+    expect(env.rows[0]).toMatchObject({ mcId: "sari", mcSent: false, mcConfirmed: false });
+  });
+});
+
+describe("AE booking waits for confirmed shifts", () => {
+  it("refuses until the Planner confirms the month's shifts", async () => {
+    const env = fakeDeps();
+    env.shiftsConfirmed.clear();
+    const r = await saveSlot(env.deps, ae, input());
+    expect(r).toEqual({ ok: false, error: "รอ Planner ยืนยันกะ Producer เดือน 2026-11 ก่อน จึงจะลงสล็อตได้" });
+    expect((await saveSlot(env.deps, manager, input())).ok).toBe(true); // office staff aren't held up
+    env.shiftsConfirmed.add("2026-11");
+    expect((await saveSlot(env.deps, ae, input({ roomId: "R02" }))).ok).toBe(true);
   });
 });

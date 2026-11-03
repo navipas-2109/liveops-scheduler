@@ -141,6 +141,7 @@ export interface SlotRecord {
   admin1Id: string | null;
   admin2Id: string | null;
   status: SlotStatus;
+  mcSent: boolean; // the Planner sent this MC assignment to the MC
   mcConfirmed: boolean; // the MC ticked this live as confirmed
 }
 
@@ -195,8 +196,9 @@ export interface SlotWriteSession {
   update(id: string, changes: SlotChanges): Promise<SlotRecord>;
   remove(id: string): Promise<void>;
   setStatus(id: string, status: SlotStatus): Promise<void>;
-  // Changing the MC clears the MC's confirmation.
+  // Changing the MC clears "sent" and the MC's confirmation.
   setMc(id: string, mcId: string | null, plannerId: string): Promise<void>;
+  markMcSent(id: string): Promise<void>;
   setMcConfirmed(id: string, confirmed: boolean): Promise<void>;
   clearMc(id: string): Promise<void>;
   setStaff(id: string, staff: SlotStaff): Promise<void>;

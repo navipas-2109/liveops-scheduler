@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, ClipboardCopy, Download } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ClipboardCopy, Download, Send } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { SlotListItem } from "@/application/ports";
 import type { McSheetPageData } from "@/application/slots/get-mc-sheet-page";
 import { monthLabel, shiftMonth } from "../../format";
-import { respondToSlotAction } from "../mc-planning/actions";
+import { respondToSlotAction, sendToMcsAction } from "../mc-planning/actions";
 import { AssignDrawer } from "../mc-planning/assign-drawer";
 import { hours, pdNames, sheetDate, sheetTime, toCsv, toTsv } from "./sheet-export";
 
@@ -47,16 +47,27 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
     (r) => (!brand || r.brandName === brand) && (!channel || r.platform === channel) && (!missingOnly || !r.mcId),
   );
   const missing = data.rows.filter((r) => !r.mcId).length;
+  // Assigned on this filtered view but not sent to the MCs yet.
+  const unsent = rows.filter((r) => r.mcId && !r.mcSent && r.status !== "completed");
+  async function send() {
+    if (!window.confirm(`ส่งรายชื่อ MC ${unsent.length} สล็อตให้ MC ยืนยัน?\nMC จะเห็นไลฟ์ของตัวเองในหน้านี้`)) return;
+    setBusyId("send");
+    setError(null);
+    const r = await sendToMcsAction(data.month, unsent.map((s) => s.id));
+    setBusyId(null);
+    if (!r.ok) setError(r.error);
+  }
+
   const pendingLives = data.pending.reduce((a, p) => a + p.total, 0);
 
   async function copy() {
-    await navigator.clipboard.writeText(toTsv(rows));
+    await navigator.clipboard.writeText(toTsv(rows, !isMc));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   function download() {
-    const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob([toCsv(rows, !isMc)], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `mc-slots-${data.month}${brand ? `-${brand}` : ""}.csv`;
@@ -94,6 +105,16 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
               <input type="checkbox" checked={missingOnly} onChange={(e) => setMissingOnly(e.target.checked)} />
               เฉพาะที่ยังไม่มี MC ({missing})
             </label>
+          )}
+          {data.canAssign && (
+            <button
+              type="button"
+              onClick={send}
+              disabled={unsent.length === 0 || busyId === "send"}
+              className="flex items-center gap-1.5 rounded-lg bg-confirmed-fg px-3 py-1.5 text-xs font-semibold text-page hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Send size={14} /> ส่งให้ MC ยืนยัน ({unsent.length})
+            </button>
           )}
           <button
             type="button"
@@ -143,7 +164,7 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
           <table className="w-full min-w-[1080px] text-left text-xs">
             <thead className="bg-primary text-[11px] text-white">
               <tr>
-                {[isMc ? "ยืนยัน" : "MC", isMc ? "" : "MC ยืนยัน", "Brand", "Channel", "Date", "Start Time", "End Time", "Hrs", "Room", "PD", "Note"].map((h, i) => (
+                {[isMc ? "ยืนยัน" : "MC", isMc ? "" : "MC ยืนยัน", "Brand", "Channel", "Date", "Start Time", "End Time", "Hrs", "Room", ...(isMc ? [] : ["PD"]), "Note"].map((h, i) => (
                   <th key={i} className="px-3 py-2 font-semibold">
                     {h}
                   </th>
@@ -197,8 +218,10 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
                       <span className="text-muted">—</span>
                     ) : s.mcConfirmed ? (
                       <span className="font-semibold text-confirmed-fg">✓ ยืนยันแล้ว</span>
+                    ) : s.mcSent || data.viewer === "ae" ? (
+                      <span className="text-waiting-fg">ส่งแล้ว · รอ MC</span>
                     ) : (
-                      <span className="text-waiting-fg">รอ MC</span>
+                      <span className="text-muted">ยังไม่ส่ง</span>
                     )}
                   </td>
                   <td className="px-3 py-1.5 font-medium">{s.brandName}</td>
@@ -208,7 +231,7 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
                   <td className="px-3 py-1.5 tabular-nums">{sheetTime(s.endMinute)}</td>
                   <td className="px-3 py-1.5 tabular-nums">{hours(s)}</td>
                   <td className="px-3 py-1.5 text-soft">{s.roomName}</td>
-                  <td className="px-3 py-1.5 text-soft">{pdNames(s) || "—"}</td>
+                  {!isMc && <td className="px-3 py-1.5 text-soft">{pdNames(s) || "—"}</td>}
                   <td className="max-w-[240px] truncate px-3 py-1.5 text-muted" title={s.requirement}>
                     {s.status === "conflict" && <span className="mr-1 font-semibold text-conflict-fg">คิวชน</span>}
                     {s.requirement}
@@ -229,7 +252,8 @@ export function McSheetView({ data }: { data: McSheetPageData }) {
         </div>
         <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
           {rows.length} สล็อต · {rows.reduce((a, s) => a + hours(s), 0)} ชั่วโมง
-          {data.canAssign && " · คลิกช่อง MC เพื่อเลือก MC (MC ที่ติดไลฟ์อื่นเวลาเดียวกันจะเลือกไม่ได้) · เปลี่ยน MC แล้ว MC ต้องยืนยันใหม่"}
+          {data.canAssign &&
+            " · คลิกช่อง MC เพื่อเลือก MC (MC ที่ติดไลฟ์อื่นเวลาเดียวกันจะเลือกไม่ได้) · ตรวจแล้วกด “ส่งให้ MC ยืนยัน” · เปลี่ยน MC แล้วต้องส่งใหม่"}
           {data.viewer === "ae" && " · ชื่อ MC จะแสดงเมื่อ MC ยืนยันแล้ว"}
         </p>
       </section>

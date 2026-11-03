@@ -1,8 +1,15 @@
 import type { SessionUser } from "../auth/login";
 import { checkBookingAllowed, monthOf } from "@/domain/booking";
-import type { BookingWindowRepository, BrandPlanRepository, Clock, SlotLockRepository, SlotRepository } from "../ports";
+import type {
+  BookingWindowRepository,
+  BrandPlanRepository,
+  Clock,
+  ShiftMonthRepository,
+  SlotLockRepository,
+  SlotRepository,
+} from "../ports";
 import { recomputeStatuses } from "./recompute-statuses";
-import { lockedFor } from "./save-slot";
+import { lockedFor, waitingForShifts } from "./save-slot";
 
 export async function deleteSlot(
   deps: {
@@ -10,6 +17,7 @@ export async function deleteSlot(
     bookingWindows: BookingWindowRepository;
     locks: SlotLockRepository;
     plans: BrandPlanRepository;
+    shiftMonths: ShiftMonthRepository;
     clock: Clock;
   },
   user: SessionUser,
@@ -28,6 +36,8 @@ export async function deleteSlot(
     deps.clock.today(),
   );
   if (!check.ok) return { ok: false, error: check.reason };
+  const shiftsPending = await waitingForShifts(deps.shiftMonths, user, [slot.date]);
+  if (shiftsPending) return { ok: false, error: shiftsPending };
   const locked = await lockedFor(deps.locks, user, [slot]);
   if (locked) return { ok: false, error: locked };
 

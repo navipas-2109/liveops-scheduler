@@ -30,13 +30,20 @@ const recordSelect = {
   admin1Id: true,
   admin2Id: true,
   status: true,
+  mcSentAt: true,
   mcConfirmedAt: true,
 } satisfies Prisma.SlotSelect;
 
 type RecordRow = Prisma.SlotGetPayload<{ select: typeof recordSelect }>;
 
-function toRecord({ mcConfirmedAt, ...row }: RecordRow): SlotRecord {
-  return { ...row, date: toIsoDate(row.date), status: fromDbStatus(row.status), mcConfirmed: !!mcConfirmedAt };
+function toRecord({ mcSentAt, mcConfirmedAt, ...row }: RecordRow): SlotRecord {
+  return {
+    ...row,
+    date: toIsoDate(row.date),
+    status: fromDbStatus(row.status),
+    mcSent: !!mcSentAt,
+    mcConfirmed: !!mcConfirmedAt,
+  };
 }
 
 const listSelect = {
@@ -79,13 +86,16 @@ function sessionFor(db: Db): SlotWriteSession {
       await db.slot.update({ where: { id }, data: { status: toDbStatus(status) } });
     },
     async setMc(id, mcId, plannerId) {
-      await db.slot.update({ where: { id }, data: { mcId, plannerId, mcConfirmedAt: null } });
+      await db.slot.update({ where: { id }, data: { mcId, plannerId, mcSentAt: null, mcConfirmedAt: null } });
+    },
+    async markMcSent(id) {
+      await db.slot.update({ where: { id }, data: { mcSentAt: new Date() } });
     },
     async setMcConfirmed(id, confirmed) {
       await db.slot.update({ where: { id }, data: { mcConfirmedAt: confirmed ? new Date() : null } });
     },
     async clearMc(id) {
-      await db.slot.update({ where: { id }, data: { mcId: null, mcConfirmedAt: null } });
+      await db.slot.update({ where: { id }, data: { mcId: null, mcSentAt: null, mcConfirmedAt: null } });
     },
     async setStaff(id, staff) {
       await db.slot.update({ where: { id }, data: staff });
