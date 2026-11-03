@@ -5,7 +5,7 @@ Run after changing positions (keep in step with src/domain/producer-sheet.ts):
     python3 scripts/make_producer_template.py
 
 The layout must stay readable by parseProducerSheet: a header row with
-"Employee ID", "Name", "Position", "Squad".
+"Team", "Employee ID", "Name", "Position", "Squad".
 """
 
 from pathlib import Path
@@ -17,8 +17,9 @@ from openpyxl.worksheet.datavalidation import DataValidation
 OUT = Path(__file__).resolve().parent.parent / "public" / "templates" / "producer-import-template.xlsx"
 
 POSITIONS = ["Producer Team Lead", "Senior Producer", "Producer", "Jr. Producer"]
-HEADERS = ["Employee ID", "Name", "Position", "Squad"]
-WIDTHS = [16, 26, 22, 36]
+TEAMS = ["M", "Tae", "Cartoon"]
+HEADERS = ["Team", "Employee ID", "Name", "Position", "Squad"]
+WIDTHS = [12, 16, 26, 22, 36]
 HEADER_ROW = 4
 DATA_ROWS = 300
 
@@ -50,15 +51,20 @@ ws["A2"].font = Font(italic=True, color="667085")
 header(ws, HEADER_ROW)
 ws.freeze_panes = ws.cell(row=HEADER_ROW + 1, column=1)
 for r in range(HEADER_ROW + 1, HEADER_ROW + 1 + DATA_ROWS):
-    for c in range(1, 5):
+    for c in range(1, len(HEADERS) + 1):
         cell = ws.cell(row=r, column=c)
         cell.border = box
-    ws.cell(row=r, column=1).number_format = "@"  # keep leading zeros in IDs
+    ws.cell(row=r, column=2).number_format = "@"  # keep leading zeros in IDs
 dv = DataValidation(type="list", formula1='"' + ",".join(POSITIONS) + '"', allow_blank=True)
 dv.error = "เลือกตำแหน่งจากรายการ"
 dv.prompt = "เลือกตำแหน่ง (เว้นว่าง = คงเดิม / คนใหม่เป็น Jr. Producer)"
 ws.add_data_validation(dv)
-dv.add(f"C{HEADER_ROW + 1}:C{HEADER_ROW + DATA_ROWS}")
+dv.add(f"D{HEADER_ROW + 1}:D{HEADER_ROW + DATA_ROWS}")
+# Teams: pick one, or type a new team name (no error for other values).
+team_dv = DataValidation(type="list", formula1='"' + ",".join(TEAMS) + '"', allow_blank=True, showErrorMessage=False)
+team_dv.prompt = "เลือกทีม หรือพิมพ์ชื่อทีมใหม่ (เว้นว่าง = คงเดิม)"
+ws.add_data_validation(team_dv)
+team_dv.add(f"A{HEADER_ROW + 1}:A{HEADER_ROW + DATA_ROWS}")
 
 # How-to tab.
 how = wb.create_sheet("วิธีใช้")
@@ -72,9 +78,10 @@ lines = [
     ("ระบบจับคู่คนเดิมด้วย Employee ID ก่อน ถ้าไม่มีรหัสจะจับคู่ด้วยชื่อ", False),
     ("• คนที่จับคู่ได้ = อัปเดตข้อมูล (เช่น เปลี่ยนชื่อ ตำแหน่ง Squad หรือเติมรหัส)", False),
     ("• คนที่จับคู่ไม่ได้ = เพิ่มเป็นพนักงานใหม่", False),
-    ("• Position / Squad ว่าง = คงค่าเดิม (คนใหม่: ตำแหน่ง Jr. Producer, Squad ว่าง)", False),
+    ("• Team / Position / Squad ว่าง = คงค่าเดิม (คนใหม่: ตำแหน่ง Jr. Producer)", False),
     ("• คนที่มีในระบบแต่ไม่มีในไฟล์ จะไม่ถูกลบ (ลบได้ที่หน้า Producer Database)", False),
     ("", False),
+    ("Team: " + ", ".join(TEAMS) + " หรือพิมพ์ชื่อทีมใหม่ได้", False),
     ("Position ที่ใช้ได้: " + ", ".join(POSITIONS), False),
     ("Employee ID ใช้ได้เฉพาะ A-Z, 0-9 และ - (ไม่เกิน 20 ตัว)", False),
 ]
@@ -89,9 +96,9 @@ ex["A1"].font = Font(bold=True, color=NAVY)
 header(ex, 3)
 for r, row in enumerate(
     [
-        ("110568", "Arm", "Jr. Producer", "Adidas Ch1 (TikTok)"),
-        ("110601", "Sa", "Producer", "Adidas Shopee"),
-        ("", "Donut", "", "Banobagi"),
+        ("M", "110568", "Arm", "Jr. Producer", "Adidas Ch1 (TikTok)"),
+        ("M", "110601", "Sa", "Producer", "Adidas Shopee"),
+        ("Tae", "", "Donut", "", "Banobagi"),
     ],
     start=4,
 ):

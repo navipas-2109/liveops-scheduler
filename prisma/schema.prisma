@@ -147,6 +147,7 @@ model Producer {
   position   ProducerPosition
   employeeId String?          @unique @map("employee_id")
   squad      String           @default("") // brands they usually cover
+  team       String           @default("") // PD team, e.g. "M", "Tae", "Cartoon"
 
   producerSlots Slot[]  @relation("SlotProducer")
   admin1Slots   Slot[]  @relation("SlotAdmin1")

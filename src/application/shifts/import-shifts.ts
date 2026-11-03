@@ -104,6 +104,7 @@ export async function importShifts(
     const fields = {
       position: positionFromTitle(person.title),
       squad: person.squad,
+      team: producer?.team ?? "",
       employeeId: person.employeeId ?? producer?.employeeId ?? null,
     };
     let saved: Producer;

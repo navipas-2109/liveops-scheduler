@@ -168,7 +168,7 @@ export function ProducerImportDrawer({ onClose }: { onClose: () => void }) {
                           </span>
                         </td>
                         <td className="px-2 py-1.5 text-soft">
-                          {i.error ?? (i.action === "new" ? `${i.position}${i.squad ? ` · ${i.squad}` : ""}` : i.changes.join(" · ") || "—")}
+                          {i.error ?? (i.action === "new" ? `${i.team ? `Team ${i.team} · ` : ""}${i.position}${i.squad ? ` · ${i.squad}` : ""}` : i.changes.join(" · ") || "—")}
                         </td>
                       </tr>
                     ))}

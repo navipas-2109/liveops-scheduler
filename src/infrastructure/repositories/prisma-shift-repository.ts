@@ -67,8 +67,16 @@ function toProducer(p: {
   position: ProducerPosition;
   employeeId: string | null;
   squad: string;
+  team: string;
 }): Producer {
-  return { id: p.id, name: p.name, position: POSITION_LABEL[p.position], employeeId: p.employeeId, squad: p.squad };
+  return {
+    id: p.id,
+    name: p.name,
+    position: POSITION_LABEL[p.position],
+    employeeId: p.employeeId,
+    squad: p.squad,
+    team: p.team,
+  };
 }
 
 export const prismaProducerRepository: ProducerRepository = {

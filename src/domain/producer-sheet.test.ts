@@ -15,9 +15,9 @@ describe("parseProducerSheet", () => {
     expect(r).toEqual({
       ok: true,
       people: [
-        { row: 4, employeeId: "110568", name: "Arm", position: "Jr. Producer", squad: "Adidas Ch1 (TikTok)" },
-        { row: 5, employeeId: null, name: "Sa", position: "Senior Producer", squad: null },
-        { row: 7, employeeId: "120001", name: "New Guy", position: null, squad: "Puma" },
+        { row: 4, employeeId: "110568", name: "Arm", position: "Jr. Producer", squad: "Adidas Ch1 (TikTok)", team: null },
+        { row: 5, employeeId: null, name: "Sa", position: "Senior Producer", squad: null, team: null },
+        { row: 7, employeeId: "120001", name: "New Guy", position: null, squad: "Puma", team: null },
       ],
     });
   });
@@ -29,5 +29,17 @@ describe("parseProducerSheet", () => {
 
   it("explains a sheet without a Name column", () => {
     expect(parseProducerSheet([["a", "b"], ["1", "2"]]).ok).toBe(false);
+  });
+
+  it("reads the Team column, as in the team's own sheet", () => {
+    const r = parseProducerSheet([
+      ["Team", "Employee ID", "Name", "Title", "Squad"],
+      ["M", "110112", "M", "Producer Team Lead", ""],
+      ["Tae", "110184", "Eve Thitiyap", "Jr. Producer", "Running (GQ, GW)"],
+    ]);
+    expect(r.ok && r.people.map((p) => [p.team, p.name, p.position])).toEqual([
+      ["M", "M", "Producer Team Lead"],
+      ["Tae", "Eve Thitiyap", "Jr. Producer"],
+    ]);
   });
 });

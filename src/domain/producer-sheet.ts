@@ -11,6 +11,7 @@ export interface SheetProducer {
   name: string;
   position: string | null; // null = not given (keep / default)
   squad: string | null; // null = not given (keep)
+  team: string | null; // null = not given (keep)
 }
 
 export type ProducerSheetParse = { ok: true; people: SheetProducer[] } | { ok: false; error: string };
@@ -24,6 +25,7 @@ const COLUMNS = {
   name: ["name", "ชื่อ", "ชื่อเล่น", "nickname"],
   position: ["position", "title", "ตำแหน่ง"],
   squad: ["squad", "brandsquad", "สควอด", "แบรนด์"],
+  team: ["team", "pdteam", "pdcluster", "ทีม"],
 } as const;
 
 export function parseProducerSheet(rows: unknown[][]): ProducerSheetParse {
@@ -31,7 +33,7 @@ export function parseProducerSheet(rows: unknown[][]): ProducerSheetParse {
   if (headerIndex < 0) return { ok: false, error: "ไม่พบแถวหัวตารางที่มีคอลัมน์ Name / ชื่อ — ใช้ไฟล์ Template" };
   const header = rows[headerIndex].map(head);
   const col = (k: keyof typeof COLUMNS) => header.findIndex((h) => (COLUMNS[k] as readonly string[]).includes(h));
-  const at = { employeeId: col("employeeId"), name: col("name"), position: col("position"), squad: col("squad") };
+  const at = { employeeId: col("employeeId"), name: col("name"), position: col("position"), squad: col("squad"), team: col("team") };
 
   const people: SheetProducer[] = [];
   const body = rows.slice(headerIndex + 1);
@@ -47,6 +49,7 @@ export function parseProducerSheet(rows: unknown[][]): ProducerSheetParse {
       name,
       position: rawPosition ? (exact ?? positionFromTitle(rawPosition)) : null,
       squad: at.squad >= 0 && clean(r[at.squad]) ? clean(r[at.squad]) : null,
+      team: at.team >= 0 && clean(r[at.team]) ? clean(r[at.team]) : null,
     });
   });
   if (people.length === 0) return { ok: false, error: "ไม่พบรายชื่อในไฟล์" };

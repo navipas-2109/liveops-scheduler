@@ -15,6 +15,7 @@ export interface ProducerImportItem {
   employeeId: string | null;
   position: string;
   squad: string;
+  team: string;
   action: ProducerAction;
   matchedId: string | null;
   changes: string[]; // e.g. "Squad: Adidas → Puma"
@@ -37,6 +38,7 @@ function planRow(person: SheetProducer, existing: Producer[], seen: { ids: Set<s
     ...base,
     position: person.position ?? "",
     squad: person.squad ?? "",
+    team: person.team ?? "",
     action: "error",
     error,
   });
@@ -60,6 +62,7 @@ function planRow(person: SheetProducer, existing: Producer[], seen: { ids: Set<s
     employeeId: person.employeeId ?? match?.employeeId ?? null,
     position: person.position ?? match?.position ?? "Jr. Producer",
     squad: person.squad ?? match?.squad ?? "",
+    team: person.team ?? match?.team ?? "",
   };
   if (!match) return { ...base, ...target, action: "new", error: null };
 
@@ -67,6 +70,7 @@ function planRow(person: SheetProducer, existing: Producer[], seen: { ids: Set<s
   if (match.name !== person.name) changes.push(`ชื่อ: ${match.name} → ${person.name}`);
   if (match.employeeId !== target.employeeId) changes.push(`รหัส: ${match.employeeId ?? "—"} → ${target.employeeId}`);
   if (match.position !== target.position) changes.push(`ตำแหน่ง: ${match.position} → ${target.position}`);
+  if (match.team !== target.team) changes.push(`Team: ${match.team || "—"} → ${target.team || "—"}`);
   if (match.squad !== target.squad) changes.push(`Squad: ${match.squad || "—"} → ${target.squad || "—"}`);
   return { ...base, ...target, matchedId: match.id, changes, action: changes.length ? "update" : "same", error: null };
 }
@@ -109,7 +113,7 @@ export async function importProducers(
     const r = await saveProducer(
       deps,
       user,
-      { name: item.name, employeeId: item.employeeId, position: item.position, squad: item.squad },
+      { name: item.name, employeeId: item.employeeId, position: item.position, squad: item.squad, team: item.team },
       item.matchedId ?? undefined,
     );
     if (!r.ok) out.skipped.push({ name: `แถว ${item.row} ${item.name}`, reason: r.error });

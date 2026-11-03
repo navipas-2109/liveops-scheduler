@@ -258,6 +258,7 @@ export interface Producer {
   position: string;
   employeeId: string | null;
   squad: string;
+  team: string; // PD team, e.g. "M", "Tae", "Cartoon"
 }
 
 export interface ProducerInput {
@@ -265,6 +266,7 @@ export interface ProducerInput {
   position: string; // display label, e.g. "Jr. Producer"
   employeeId: string | null;
   squad: string;
+  team: string;
 }
 
 export interface ShiftEntry {

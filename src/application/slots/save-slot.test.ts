@@ -121,7 +121,7 @@ function fakeDeps(today = "2026-10-29") {
     },
     producers: {
       listAll: async () =>
-        ["pd1", "pd2", "pd3"].map((id) => ({ id, name: id, position: "Producer", employeeId: null, squad: "" })),
+        ["pd1", "pd2", "pd3"].map((id) => ({ id, name: id, position: "Producer", employeeId: null, squad: "", team: "" })),
       create: async () => ({}) as never,
       update: async () => ({}) as never,
       remove: async () => {},

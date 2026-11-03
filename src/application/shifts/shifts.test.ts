@@ -10,9 +10,9 @@ const ae: SessionUser = { userId: "ae", name: "AE", role: "AE" };
 
 function fakes() {
   const producers: Producer[] = [
-    { id: "p1", name: "M", position: "Producer Team Lead", employeeId: null, squad: "" },
-    { id: "p2", name: "First", position: "Producer", employeeId: "110215", squad: "" },
-    { id: "p3", name: "Ice", position: "Jr. Producer", employeeId: "110001", squad: "" },
+    { id: "p1", name: "M", position: "Producer Team Lead", employeeId: null, squad: "", team: "" },
+    { id: "p2", name: "First", position: "Producer", employeeId: "110215", squad: "", team: "" },
+    { id: "p3", name: "Ice", position: "Jr. Producer", employeeId: "110001", squad: "", team: "" },
   ];
   let stored: ShiftEntry[] = [
     { producerId: "p1", date: "2026-11-01", kind: "live", code: "", shiftStart: 600, shiftEnd: 1200 },
@@ -78,7 +78,7 @@ describe("shift import", () => {
     const r = await importShifts(env.deps, operation, { month: "2026-11", text: SHEET });
     expect(r).toEqual({ ok: true, value: { people: 4, added: 2, entries: 10 } });
     expect(env.producers.find((p) => p.id === "p1")).toMatchObject({ employeeId: "110112" });
-    expect(env.producers.find((p) => p.id === "p2")).toMatchObject({ name: "First", squad: "Uniqlo" });
+    expect(env.producers.find((p) => p.id === "p2")).toMatchObject({ name: "First", squad: "Uniqlo", team: "" });
     expect(env.producers.map((p) => p.name)).toContain("Ice (110999)");
     // The old Nov 1 shift for M is replaced; the other Ice (not in the sheet) keeps theirs.
     expect(env.stored().filter((e) => e.producerId === "p1").map((e) => e.code)).toEqual(["1", "OF", "OF"]);
@@ -99,6 +99,7 @@ describe("saveProducer", () => {
       employeeId: "110568",
       position: "Jr. Producer",
       squad: "Adidas Ch1 (TikTok)",
+      team: "",
     });
     expect(r.ok && r.producer).toMatchObject({ name: "Donut", employeeId: "110568" });
   });
@@ -110,12 +111,13 @@ describe("saveProducer", () => {
       employeeId: "110215",
       position: "Producer",
       squad: "",
+      team: "",
     });
     expect(dupId).toEqual({ ok: false, error: "รหัส 110215 เป็นของ First อยู่แล้ว" });
-    const dupName = await saveProducer(deps, operation, { name: "first", employeeId: null, position: "Producer", squad: "" });
+    const dupName = await saveProducer(deps, operation, { name: "first", employeeId: null, position: "Producer", squad: "", team: "" });
     expect(dupName.ok).toBe(false);
     // Editing yourself with your own ID is fine.
-    const self = await saveProducer(deps, operation, { name: "First", employeeId: "110215", position: "Senior Producer", squad: "" }, "p2");
+    const self = await saveProducer(deps, operation, { name: "First", employeeId: "110215", position: "Senior Producer", squad: "", team: "" }, "p2");
     expect(self.ok).toBe(true);
   });
 });
@@ -147,9 +149,9 @@ describe("getStaffGrid", () => {
         } as never,
         producers: {
           listAll: async () => [
-            { id: "p2", name: "Jr", position: "Jr. Producer", employeeId: null, squad: "" },
-            { id: "p1", name: "Lead", position: "Producer Team Lead", employeeId: null, squad: "" },
-            { id: "p3", name: "Idle", position: "Producer", employeeId: null, squad: "" },
+            { id: "p2", name: "Jr", position: "Jr. Producer", employeeId: null, squad: "", team: "" },
+            { id: "p1", name: "Lead", position: "Producer Team Lead", employeeId: null, squad: "", team: "" },
+            { id: "p3", name: "Idle", position: "Producer", employeeId: null, squad: "", team: "" },
           ],
           create: async () => ({}) as never,
           update: async () => ({}) as never,

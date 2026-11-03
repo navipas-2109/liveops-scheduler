@@ -7,9 +7,9 @@ const ae = { userId: "a", name: "AE", role: "AE" as const };
 
 function producerFakes() {
   const list: Producer[] = [
-    { id: "1", name: "Arm", position: "Jr. Producer", employeeId: null, squad: "Adidas" },
-    { id: "2", name: "Sa", position: "Producer", employeeId: "110", squad: "Adidas" },
-    { id: "3", name: "Busy", position: "Producer", employeeId: null, squad: "" },
+    { id: "1", name: "Arm", position: "Jr. Producer", employeeId: null, squad: "Adidas", team: "" },
+    { id: "2", name: "Sa", position: "Producer", employeeId: "110", squad: "Adidas", team: "" },
+    { id: "3", name: "Busy", position: "Producer", employeeId: null, squad: "", team: "" },
   ];
   const producers = {
     listAll: async () => list.map((p) => ({ ...p })),
@@ -23,7 +23,7 @@ function producerFakes() {
 describe("bulk edit and delete", () => {
   it("changes only the chosen field on every selected producer", async () => {
     const { list, deps } = producerFakes();
-    const r = await updateProducers(deps, planner, ["1", "2"], { squad: "Puma" });
+    const r = await updateProducers(deps, planner, ["1", "2"], { squad: "Puma", team: "" });
     expect(r).toEqual({ ok: true, value: { done: 2, skipped: [] } });
     expect(list.map((p) => [p.squad, p.position])).toEqual([
       ["Puma", "Jr. Producer"],

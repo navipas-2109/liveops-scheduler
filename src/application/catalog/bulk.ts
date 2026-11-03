@@ -39,6 +39,7 @@ async function each<T extends { id: string }>(
 export interface ProducerPatch {
   position?: string;
   squad?: string;
+  team?: string;
 }
 
 export async function updateProducers(
@@ -49,7 +50,7 @@ export async function updateProducers(
 ): Promise<Out> {
   const rows = await deps.producers.listAll();
   return each(user, ids, rows, (p) => p.name, (p) =>
-    saveProducer(deps, user, { name: p.name, employeeId: p.employeeId, position: patch.position ?? p.position, squad: patch.squad ?? p.squad }, p.id),
+    saveProducer(deps, user, { name: p.name, employeeId: p.employeeId, position: patch.position ?? p.position, squad: patch.squad ?? p.squad, team: patch.team ?? p.team }, p.id),
   );
 }
 

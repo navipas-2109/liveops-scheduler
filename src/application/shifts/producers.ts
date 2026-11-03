@@ -34,7 +34,9 @@ export async function saveProducer(
     return { ok: false, error: `รหัส ${employeeId} เป็นของ ${owner.name} อยู่แล้ว` };
   }
 
-  const fields = { name, employeeId, position: input.position, squad: input.squad.trim().slice(0, 200) };
+  const team = input.team.replace(/\s+/g, " ").trim();
+  if (team.length > 40) return { ok: false, error: "ชื่อทีมยาวเกินไป" };
+  const fields = { name, employeeId, position: input.position, squad: input.squad.trim().slice(0, 200), team };
   const producer = id ? await deps.producers.update(id, fields) : await deps.producers.create(fields);
   return { ok: true, producer };
 }

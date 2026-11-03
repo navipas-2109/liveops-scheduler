@@ -48,7 +48,17 @@ type Draft = {
   employeeId: string;
   position: string;
   squad: string;
+  team: string;
 };
+
+// Teams offered first; any other name can be typed in.
+const DEFAULT_TEAMS = ["M", "Tae", "Cartoon"];
+const teamsOf = (producers: Producer[]) => [
+  ...new Set([
+    ...DEFAULT_TEAMS,
+    ...producers.map((p) => p.team).filter(Boolean),
+  ]),
+];
 
 export function ProducersView({
   producers,
@@ -59,16 +69,20 @@ export function ProducersView({
 }) {
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState<string | null>(null);
+  const [team, setTeam] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const teams = teamsOf(producers);
 
   const q = query.trim().toLowerCase();
   const visible = producers.filter(
     (p) =>
       (!position || p.position === position) &&
+      (team === null || p.team === team) &&
       (!q ||
         p.name.toLowerCase().includes(q) ||
         (p.employeeId ?? "").includes(q) ||
-        p.squad.toLowerCase().includes(q)),
+        p.squad.toLowerCase().includes(q) ||
+        p.team.toLowerCase().includes(q)),
   );
   const missingId = producers.filter((p) => !p.employeeId).length;
   const selection = useSelection(producers.map((p) => p.id));
@@ -116,10 +130,28 @@ export function ProducersView({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาชื่อ รหัส หรือ Squad"
+                placeholder="ค้นหาชื่อ รหัส Team หรือ Squad"
                 className="w-48 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
               />
             </label>
+            <select
+              value={team ?? "__all"}
+              onChange={(e) =>
+                setTeam(e.target.value === "__all" ? null : e.target.value)
+              }
+              aria-label="Team"
+              className="rounded-md border border-line-strong bg-field px-2 py-1.5 text-xs text-ink outline-none"
+            >
+              <option value="__all">ทุก Team ({producers.length})</option>
+              {teams.map((t) => (
+                <option key={t} value={t}>
+                  Team {t} ({producers.filter((p) => p.team === t).length})
+                </option>
+              ))}
+              <option value="">
+                ยังไม่มี Team ({producers.filter((p) => !p.team).length})
+              </option>
+            </select>
             <div className="flex flex-wrap gap-1">
               {[null, ...POSITIONS].map((p) => (
                 <button
@@ -165,6 +197,7 @@ export function ProducersView({
                     employeeId: "",
                     position: "Jr. Producer",
                     squad: "",
+                    team: team ?? "",
                   })
                 }
                 className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
@@ -193,6 +226,7 @@ export function ProducersView({
                   </th>
                 )}
                 <th className="px-4 py-2 font-semibold">รหัสพนักงาน</th>
+                <th className="px-3 py-2 font-semibold">Team</th>
                 <th className="px-3 py-2 font-semibold">ชื่อ</th>
                 <th className="px-3 py-2 font-semibold">ตำแหน่ง</th>
                 <th className="px-3 py-2 font-semibold">Squad</th>
@@ -218,6 +252,15 @@ export function ProducersView({
                   <td className="px-4 py-2 tabular-nums text-soft">
                     {p.employeeId ?? <span className="text-muted">—</span>}
                   </td>
+                  <td className="px-3 py-2">
+                    {p.team ? (
+                      <span className="rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                        {p.team}
+                      </span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 font-semibold">{p.name}</td>
                   <td className="px-3 py-2">
                     <span
@@ -240,6 +283,7 @@ export function ProducersView({
                             employeeId: p.employeeId ?? "",
                             position: p.position,
                             squad: p.squad,
+                            team: p.team,
                           })
                         }
                         aria-label={`แก้ไข ${p.name}`}
@@ -267,6 +311,7 @@ export function ProducersView({
       {bulkEditing && (
         <BulkProducerDrawer
           ids={selection.selected}
+          teams={teams}
           onClose={() => setBulkEditing(false)}
           onDone={(outcome) => {
             setNote({ verb: "แก้ไข", outcome });
@@ -281,6 +326,7 @@ export function ProducersView({
         <ProducerDrawer
           key={draft.id ?? "new"}
           initial={draft}
+          teams={teams}
           onClose={() => setDraft(null)}
         />
       )}
@@ -290,9 +336,11 @@ export function ProducersView({
 
 function ProducerDrawer({
   initial,
+  teams,
   onClose,
 }: {
   initial: Draft;
+  teams: string[];
   onClose: () => void;
 }) {
   const [values, setValues] = useState(initial);
@@ -403,6 +451,22 @@ function ProducerDrawer({
             </select>
           </label>
           <label className="grid gap-1.5">
+            <span className="text-[11px] text-soft">Team</span>
+            <input
+              list="producer-teams"
+              value={values.team}
+              onChange={(e) => setValues({ ...values, team: e.target.value })}
+              placeholder="เช่น M, Tae, Cartoon"
+              aria-label="Team"
+              className={`${field} placeholder:text-muted`}
+            />
+            <datalist id="producer-teams">
+              {teams.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
+          </label>
+          <label className="grid gap-1.5">
             <span className="text-[11px] text-soft">Squad (แบรนด์ที่ดูแล)</span>
             <input
               value={values.squad}
@@ -453,15 +517,19 @@ function ProducerDrawer({
 
 function BulkProducerDrawer({
   ids,
+  teams,
   onClose,
   onDone,
 }: {
   ids: string[];
+  teams: string[];
   onClose: () => void;
   onDone: (outcome: BulkOutcome) => void;
 }) {
   const [usePosition, setUsePosition] = useState(false);
   const [useSquad, setUseSquad] = useState(false);
+  const [useTeam, setUseTeam] = useState(false);
+  const [team, setTeam] = useState(teams[0] ?? "");
   const [position, setPosition] = useState(POSITIONS[3]);
   const [squad, setSquad] = useState("");
   const field =
@@ -476,10 +544,26 @@ function BulkProducerDrawer({
           await updateProducersAction(ids, {
             ...(usePosition ? { position } : {}),
             ...(useSquad ? { squad } : {}),
+            ...(useTeam ? { team } : {}),
           }),
         )
       }
     >
+      <BulkField label="Team" on={useTeam} onToggle={setUseTeam}>
+        <input
+          list="bulk-producer-teams"
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+          placeholder="เช่น M · เว้นว่าง = ล้าง Team"
+          aria-label="Team ใหม่"
+          className={`${field} placeholder:text-muted`}
+        />
+        <datalist id="bulk-producer-teams">
+          {teams.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
+      </BulkField>
       <BulkField label="ตำแหน่ง" on={usePosition} onToggle={setUsePosition}>
         <select
           value={position}

@@ -5,7 +5,7 @@ import { services } from "@/di/container";
 import { getSessionUser } from "@/infrastructure/auth/session";
 
 export async function saveProducerAction(
-  input: { name: string; employeeId: string; position: string; squad: string },
+  input: { name: string; employeeId: string; position: string; squad: string; team: string },
   id?: string,
 ) {
   const user = await getSessionUser();
@@ -17,6 +17,7 @@ export async function saveProducerAction(
       employeeId: String(input.employeeId ?? "") || null,
       position: String(input.position ?? ""),
       squad: String(input.squad ?? ""),
+      team: String(input.team ?? ""),
     },
     id ? String(id) : undefined,
   );
@@ -36,10 +37,14 @@ export async function deleteProducerAction(id: string) {
 const ids = (v: unknown) => (Array.isArray(v) ? v.map(String).slice(0, 500) : []);
 const text = (v: unknown) => (typeof v === "string" ? v : undefined);
 
-export async function updateProducersAction(selected: string[], patch: { position?: string; squad?: string }) {
+export async function updateProducersAction(selected: string[], patch: { position?: string; squad?: string; team?: string }) {
   const user = await getSessionUser();
   if (!user) return { ok: false as const, error: "กรุณาเข้าสู่ระบบใหม่" };
-  const result = await services.updateProducers(user, ids(selected), { position: text(patch?.position), squad: text(patch?.squad) });
+  const result = await services.updateProducers(user, ids(selected), {
+    position: text(patch?.position),
+    squad: text(patch?.squad),
+    team: text(patch?.team),
+  });
   if (result.ok) refresh();
   return result;
 }

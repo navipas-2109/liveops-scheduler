@@ -6,9 +6,9 @@ const planner = { userId: "p", name: "Planner", role: "PLANNER" as const };
 
 function fakes() {
   const list: Producer[] = [
-    { id: "1", name: "Arm", position: "Jr. Producer", employeeId: "110", squad: "Adidas" },
-    { id: "2", name: "Sa", position: "Producer", employeeId: null, squad: "Adidas Shopee" },
-    { id: "3", name: "Mor", position: "Producer", employeeId: "300", squad: "" },
+    { id: "1", name: "Arm", position: "Jr. Producer", employeeId: "110", squad: "Adidas", team: "" },
+    { id: "2", name: "Sa", position: "Producer", employeeId: null, squad: "Adidas Shopee", team: "" },
+    { id: "3", name: "Mor", position: "Producer", employeeId: "300", squad: "", team: "" },
   ];
   let seq = 10;
   const producers = {
@@ -58,5 +58,19 @@ describe("Producer Database upload", () => {
   it("refuses AEs", async () => {
     const { deps } = fakes();
     expect((await importProducers(deps, { ...planner, role: "AE" }, sheet)).ok).toBe(false);
+  });
+
+  it("sets and changes Team; a blank Team keeps the current one", async () => {
+    const { list, deps } = fakes();
+    list[0].team = "M";
+    const rows = [["Team", "Name"], ["Tae", "Arm"], ["", "Sa"], ["Cartoon", "Newbie"]];
+    const p = await previewProducerImport(deps, planner, rows);
+    expect(p.ok && p.value.items.map((i) => [i.action, i.changes.join("; ") || i.team])).toEqual([
+      ["update", "Team: M → Tae"],
+      ["same", ""],
+      ["new", "Cartoon"],
+    ]);
+    await importProducers(deps, planner, rows);
+    expect(list.map((x) => [x.name, x.team])).toEqual([["Arm", "Tae"], ["Sa", ""], ["Mor", ""], ["Newbie", "Cartoon"]]);
   });
 });
