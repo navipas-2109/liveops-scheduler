@@ -7,8 +7,10 @@ import { homeHref, navItemForPath } from "./app/navigation";
 // /login, and people opening a page their role can't use go to their home page.
 // Each page still checks the role itself (see require-page.ts).
 export default async function proxy(req: NextRequest) {
-  const user = await verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value);
   const path = req.nextUrl.pathname;
+  // The MC queue page opens inside LINE; LINE identifies the MC, not our login.
+  if (path === "/line" || path.startsWith("/line/")) return NextResponse.next();
+  const user = await verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value);
   const redirectTo = (target: string) => NextResponse.redirect(new URL(target, req.nextUrl));
 
   if (!user) return path === "/login" ? NextResponse.next() : redirectTo("/login");

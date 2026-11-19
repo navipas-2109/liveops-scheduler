@@ -24,7 +24,8 @@ export type PageId =
   | "roomDatabase"
   | "channelDatabase"
   | "mcSheet"
-  | "brandCheck";
+  | "brandCheck"
+  | "lineMc";
 
 // Office staff; MCs only see their own lives on the MC Slot Sheet.
 const ALL_ROLES: Role[] = ["AE", "PLANNER", "OPERATION", "MANAGER"];
@@ -44,6 +45,7 @@ export const PAGE_ACCESS: Record<PageId, Role[]> = {
   channelDatabase: ["OPERATION", "PLANNER", "MANAGER"],
   mcSheet: ["AE", "PLANNER", "MANAGER", "MC"],
   brandCheck: ["AE", "OPERATION", "PLANNER", "MANAGER"],
+  lineMc: ["PLANNER", "MANAGER"],
 };
 
 export const HOME_PAGE: Record<Role, PageId> = {

@@ -328,3 +328,61 @@ model PdBlock {
   @@index([date])
   @@map("pd_blocks")
 }
+
+// ---- MC queue confirmation in LINE, with the queues read from the team's
+// Google Sheet (sent by an Apps Script in the sheet). Separate from Slot
+// until the sheet is replaced by MC Slot Sheet.
+
+// One queue row from the sheet. The key is built from its content, so a row
+// keeps its answer while the sheet is re-sorted, and a changed MC or time
+// becomes a new, unanswered queue.
+model SheetQueue {
+  key         String   @id
+  mcName      String   @map("mc_name")
+  brand       String
+  channel     String
+  date        DateTime @db.Date
+  startMinute Int      @map("start_minute")
+  endMinute   Int      @map("end_minute")
+  note        String   @default("")
+  bu          String   @default("")
+  sheet       String   @default("")
+  row         Int      @default(0)
+  syncedAt    DateTime @default(now()) @map("synced_at")
+
+  @@index([mcName, date])
+  @@map("sheet_queues")
+}
+
+// An MC's LINE account, linked once with a code the Planner hands out.
+model McLineLink {
+  id          String    @id @default(cuid())
+  mcName      String    @unique @map("mc_name")
+  code        String    @unique
+  lineUserId  String?   @unique @map("line_user_id")
+  lineName    String?   @map("line_name")
+  linkedAt    DateTime? @map("linked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("mc_line_links")
+}
+
+// What the MC answered for a queue: "confirmed" or "declined".
+model QueueAnswer {
+  key        String   @id
+  mcName     String   @map("mc_name")
+  status     String
+  reason     String   @default("")
+  answeredAt DateTime @default(now()) @map("answered_at")
+
+  @@map("queue_answers")
+}
+
+model SheetSync {
+  id       Int      @id @default(1)
+  syncedAt DateTime @map("synced_at")
+  rows     Int
+  sheets   String   @default("")
+
+  @@map("sheet_syncs")
+}

@@ -2,6 +2,7 @@
 // tests can pass simple fakes.
 
 import type { BookingWindow } from "@/domain/booking";
+import type { SheetQueueRow } from "@/domain/sheet-queue";
 import type { LateReason, RateType } from "@/domain/payment";
 import type { ShiftKind } from "@/domain/shift-sheet";
 import type { Role } from "@/domain/roles";
@@ -385,4 +386,43 @@ export interface PaymentRepository {
   record(slotId: string, amounts: PaymentAmounts, recordedById: string): Promise<boolean>;
   // Moves from one approval status to the next; false if it had already moved.
   advance(paymentId: string, from: ApprovalStatus, to: ApprovalStatus, byUserId: string): Promise<boolean>;
+}
+
+// ---- MC queue confirmation in LINE (queues come from the Google Sheet).
+
+export type QueueStatus = "confirmed" | "declined";
+
+export interface QueueAnswer {
+  key: string;
+  mcName: string;
+  status: QueueStatus;
+  reason: string;
+  answeredAt: string; // ISO timestamp
+}
+
+export interface McLineLink {
+  mcName: string;
+  code: string;
+  lineUserId: string | null;
+  lineName: string | null;
+  linkedAt: string | null;
+}
+
+export interface LineQueueRepository {
+  replaceQueues(queues: SheetQueueRow[], sheets: string[]): Promise<void>;
+  lastSync(): Promise<{ syncedAt: string; rows: number; sheets: string } | null>;
+  queues(filter: { from?: string; mcName?: string }): Promise<SheetQueueRow[]>;
+  answers(keys?: string[]): Promise<QueueAnswer[]>;
+  saveAnswers(answers: Omit<QueueAnswer, "answeredAt">[]): Promise<void>;
+  links(): Promise<McLineLink[]>;
+  createLinks(links: { mcName: string; code: string }[]): Promise<void>;
+  setLineUser(mcName: string, lineUserId: string | null, lineName: string | null, newCode?: string): Promise<void>;
+}
+
+export interface LineGateway {
+  readonly enabled: boolean;
+  // Who is using the LIFF page, from the ID token LINE gave it.
+  verifyIdToken(idToken: string): Promise<{ userId: string; name: string } | null>;
+  push(lineUserId: string, text: string): Promise<boolean>;
+  reply(replyToken: string, text: string): Promise<void>;
 }

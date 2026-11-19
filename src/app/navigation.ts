@@ -53,6 +53,12 @@ export const NAV_ITEMS: NavItem[] = [
     description: "AE ลงสล็อตแบรนด์ภายในช่วง Booking Window",
   },
   {
+    id: "lineMc",
+    href: "/line-mc",
+    label: "LINE MC",
+    description: "MC ยืนยันคิวผ่าน LINE (คิวจาก Google Sheet) · รหัสผูกบัญชี · แจ้งเตือน",
+  },
+  {
     id: "mcPlanning",
     href: "/mc-planning",
     label: "MC Planning",

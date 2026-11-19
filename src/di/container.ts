@@ -67,6 +67,13 @@ import {
   prismaShiftRepository,
 } from "@/infrastructure/repositories/prisma-shift-repository";
 import { prismaPaymentRepository } from "@/infrastructure/repositories/prisma-payment-repository";
+import { prismaLineQueueRepository } from "@/infrastructure/repositories/prisma-line-queue-repository";
+import { lineGateway, liffUrl } from "@/infrastructure/line/line-gateway";
+import { randomInt } from "node:crypto";
+import type { RawSheetRow } from "@/domain/sheet-queue";
+import { getLineMcPage, remindMcs, resetLineLink } from "@/application/line-queue/admin";
+import { answerMyQueues, getMyQueue, linkMyLine, type LineUser } from "@/application/line-queue/my-queue";
+import { answersForSheet, syncSheet } from "@/application/line-queue/sheet-sync";
 import { prismaSlotRepository } from "@/infrastructure/repositories/prisma-slot-repository";
 import { prismaUserRepository } from "@/infrastructure/repositories/prisma-user-repository";
 
@@ -90,12 +97,26 @@ const deps = {
   shiftMonths: prismaShiftMonthRepository,
   pdBlocks: prismaPdBlockRepository,
   plans: prismaBrandPlanRepository,
+  lineQueues: prismaLineQueueRepository,
+  line: lineGateway,
+  // Link codes MCs type into LINE: no 0/O or 1/I to mix up.
+  newCode: () => Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[randomInt(32)]).join(""),
   passwords: bcryptHasher,
   notifier: larkNotifier,
   clock,
 };
 
 export const services = {
+  syncSheet: (rows: RawSheetRow[]) => syncSheet(deps, rows),
+  answersForSheet: () => answersForSheet(deps),
+  verifyLineUser: (idToken: string) => deps.line.verifyIdToken(idToken),
+  getMyQueue: (user: LineUser) => getMyQueue(deps, user),
+  linkMyLine: (user: LineUser, code: string) => linkMyLine(deps, user, code),
+  answerMyQueues: (user: LineUser, keys: string[], status: "confirmed" | "declined", reason: string) =>
+    answerMyQueues(deps, user, keys, status, reason),
+  getLineMcPage: (user: SessionUser) => getLineMcPage(deps, user),
+  resetLineLink: (user: SessionUser, mcName: string) => resetLineLink(deps, user, mcName),
+  remindMcs: (user: SessionUser) => remindMcs(deps, user, liffUrl()),
   today: () => clock.today(),
   login: (email: string, password: string) => login(deps, email, password),
   getTodayAlerts: () => getTodayAlerts(deps),
