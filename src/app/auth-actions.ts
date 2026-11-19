@@ -16,6 +16,17 @@ const LoginInput = z.object({
   password: z.string().min(1, "กรุณากรอกรหัสผ่าน"),
 });
 
+// A sleeping free database can fail the first query while it wakes up; try
+// once more before giving up.
+async function loginWithRetry(email: string, password: string) {
+  try {
+    return await services.login(email, password);
+  } catch {
+    await new Promise((r) => setTimeout(r, 2000));
+    return services.login(email, password);
+  }
+}
+
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = LoginInput.safeParse({
     email: formData.get("email"),
@@ -24,7 +35,13 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const email = String(formData.get("email") ?? "");
   if (!parsed.success) return { error: parsed.error.issues[0].message, email };
 
-  const user = await services.login(parsed.data.email, parsed.data.password);
+  let user;
+  try {
+    user = await loginWithRetry(parsed.data.email, parsed.data.password);
+  } catch (e) {
+    console.error("login: database unavailable", e);
+    return { error: "ระบบฐานข้อมูลยังไม่พร้อม (อาจกำลังเริ่มทำงาน) — รอสักครู่แล้วลองใหม่อีกครั้ง", email };
+  }
   if (!user) return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง", email };
 
   await createSession(user);
